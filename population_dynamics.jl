@@ -123,6 +123,38 @@ function mutant_count(T, N0, division, mutation, num_cultures::Int; death=0., fi
     Nf = pop_size(T, N0, division-death)
     return mc, Nf
 end
+# Mutant count under the heterogeneous-response model with response-off and -on subpopulation (division, death and mutation rate each and switching from response-off to -on)
+function mutant_count(T, N0_off, division_off, death_off, fitness_m_off, mutation_off, switching, N0_on, division_on, death_on, mutation_on)
+    pop_growth = division_off - death_off - switching
+    t = 0.
+    m = 0
+    while t < T
+        y = rand(Exponential(1))
+        tau = interval_event(t, N0_off, pop_growth, mutation_off, y)
+        t += tau
+        m += sum(number_cells(T-t, division_off*fitness_m_off, death_off, switching, division_on, death_on))
+    end
+    t = 0.
+    while t < T
+        y = rand(Exponential(1))
+        tau = interval_event(t, N0_off, pop_growth, switching, N0_on, division_on-death_on, T, mutation_on, y)
+        t += tau
+        m += number_cells(T-t, division_on, death_on)
+    end
+    return m
+end
+# Mutant count data under the heterogeneous-response model for a given number of cultures and with optional cell death of response-off and/or -on cells and differential fitness of response-off mutants
+# Returns mutant counts, final population size and fraction of response-on subpopulation 
+function mutant_count(T, N0_off, division_off, mutation_off, switching, N0_on, division_on, mutation_on, num_cultures::Int; death_off=0., fitness_m_off=1., death_on=0.)
+    mc = Vector{Int}(undef, num_cultures)
+    for i = 1:num_cultures
+        mc[i] = mutant_count(T, N0_off, division_off, death_off, fitness_m_off, mutation_off, switching, N0_on, division_on, death_on, mutation_on)
+    end
+    Nf_off = pop_size(T, N0_off, division_off-death_off-switching)
+    Nf_on = pop_size(T, N0_off, division_off-death_off-switching, switching, N0_on, division_on-death_on)
+    return mc, Nf_off+Nf_on, Nf_on/(Nf_off+Nf_on)
+end
+
 
 # Testing validity of approximations
 # Simulating non-mutant dynamics: response-off subpopulation deterministic and response-on subpopulation stochastic
