@@ -100,6 +100,30 @@ function number_cells(T, birth_off, death_off, switching, birth_on, death_on)
     end
 end
 
+# Simulating fluctuation assays
+# Mutant count under the homogeneous-response model with cell death and differential fitness of mutants
+function mutant_count(T, N0, division, death, fitness_m, mutation)
+    t = 0.
+    m = 0
+    while t < T
+        y = rand(Exponential(1))
+        tau = interval_event(t, N0, division-death, mutation, y)
+        t += tau
+        m += number_cells(T-t, division*fitness_m, death)
+    end
+    return m
+end
+# Mutant count data under the homogeneous-response model for a given number of cultures and with optional cell death and differential fitness of mutants
+# Returns mutant counts and final population size
+function mutant_count(T, N0, division, mutation, num_cultures::Int; death=0., fitness_m=1.)
+    mc = Vector{Int}(undef, num_cultures)
+    for i = 1:num_cultures
+        mc[i] = mutant_count(T, N0, division, death, fitness_m, mutation)
+    end
+    Nf = pop_size(T, N0, division-death)
+    return mc, Nf
+end
+
 # Testing validity of approximations
 # Simulating non-mutant dynamics: response-off subpopulation deterministic and response-on subpopulation stochastic
 # Returns the number of response-on cells at time T
