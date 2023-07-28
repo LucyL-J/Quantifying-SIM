@@ -1,4 +1,4 @@
-using Roots
+using Roots, Distributions
 
 # Population growth dynamics of non-mutants (deterministic)
 # Growth of response-off subpopulation: exponential growth with population growth rate = division-death-switching rate, initial population size N0
@@ -34,5 +34,63 @@ function interval_event(t, N0, pop_growth, switching, net_growth_on, N0_on, T, e
         catch e
             return T
         end
+    end
+end
+
+# Branching processes (single/two-type)
+# Single-type branching process
+function number_cells(T, birth, death)
+    if T <= 0.
+        return 0
+    else
+        if birth == 0. && death == 0.
+            return 1
+        else
+            m = 1
+            t = rand(Exponential(1/((birth+death)*m)))
+            while t < T
+                r = rand()
+                if r <= birth/(birth+death)
+                    m += 1
+                else
+                    m -= 1
+                end
+                if m == 0
+                    return 0
+                    break
+                end
+                tau = rand(Exponential(1/((birth+death)*m)))
+                t += tau
+            end
+            return m
+        end
+    end
+end
+# Two-type branching process with switching from response-off to response-on
+function number_cells(T, birth_off, death_off, switching, birth_on, death_on)
+    if T <= 0.
+        return [0, 0]
+    else
+        m_off = 1
+        m_on = 0
+        t = rand(Exponential(1/((birth_off+death_off+switching)*m_off)))
+        while t < T
+            r = rand()
+            if r <= birth_off/(birth_off+death_off+switching)
+                m_off += 1
+            elseif r <= (birth_off+switching)/(birth_off+death_off+switching)
+                m_off -= 1
+                m_on += number_cells(T-t, birth_on, death_on)
+            else
+                m_off -= 1
+            end
+            if m_off == 0
+                return [0, m_on]
+                break
+            end
+            tau = rand(Exponential(1/((birth_off+death_off+switching)*m_off)))
+            t += tau
+        end
+        return [m_off, m_on]
     end
 end
