@@ -113,7 +113,8 @@ function mutant_count(T, N0, division, death, fitness_m, mutation)
     end
     return m
 end
-# Mutant count data under the homogeneous-response model for a given number of cultures and with optional cell death and differential fitness of mutants
+# Mutant count data under the homogeneous-response model for a given number of cultures
+# Optional: cell death and differential fitness of mutants
 # Returns mutant counts and final population size
 function mutant_count(T, N0, division, mutation, num_cultures::Int; death=0., fitness_m=1.)
     mc = Vector{Int}(undef, num_cultures)
@@ -143,15 +144,16 @@ function mutant_count(T, N0_off, division_off, death_off, fitness_m_off, mutatio
     end
     return m
 end
-# Mutant count data under the heterogeneous-response model for a given number of cultures and with optional cell death of response-off and/or -on cells and differential fitness of response-off mutants
-# Returns mutant counts, final population size and fraction of response-on subpopulation 
-function mutant_count(T, N0_off, division_off, mutation_off, switching, N0_on, division_on, mutation_on, num_cultures::Int; death_off=0., fitness_m_off=1., death_on=0.)
+# Mutant count data under the heterogeneous-response model for a given number of cultures 
+# Optional: cell death of response-off and/or -on cells, differential fitness of response-off mutants and initial fraction of response-on subpopulation
+# Returns mutant counts, final population size and final fraction of response-on subpopulation 
+function mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures::Int; death_off=0., fitness_m_off=1., death_on=0., f0_on=switching/(division_off-death_off-(division_on-death_on)))
     mc = Vector{Int}(undef, num_cultures)
     for i = 1:num_cultures
-        mc[i] = mutant_count(T, N0_off, division_off, death_off, fitness_m_off, mutation_off, switching, N0_on, division_on, death_on, mutation_on)
+        mc[i] = mutant_count(T, N0*(1-f0_on), division_off, death_off, fitness_m_off, mutation_off, switching, N0*f0_on, division_on, death_on, mutation_on)
     end
-    Nf_off = pop_size(T, N0_off, division_off-death_off-switching)
-    Nf_on = pop_size(T, N0_off, division_off-death_off-switching, switching, N0_on, division_on-death_on)
+    Nf_off = pop_size(T, N0*(1-f0_on), division_off-death_off-switching)
+    Nf_on = pop_size(T, N0*(1-f0_on), division_off-death_off-switching, switching, N0*f0_on, division_on-death_on)
     return mc, Nf_off+Nf_on, Nf_on/(Nf_off+Nf_on)
 end
 
