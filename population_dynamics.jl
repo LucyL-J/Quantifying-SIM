@@ -1,4 +1,4 @@
-using Roots, Distributions
+using Roots, Distributions, SpecialFunctions
 
 # Population growth dynamics of non-mutants (deterministic)
 # Growth of response-off subpopulation: exponential growth with population growth rate = division-death-switching rate, initial population size N0
@@ -39,6 +39,22 @@ function interval_event(t, N0_off, pop_growth, switching, N0_on, net_growth_on, 
         catch e
             return T
         end
+    end
+end
+# Expected time of the first mutation
+t_first_m(N0, pop_growth, mutation) = gamma(0., mutation*N0/pop_growth) / pop_growth
+# Expected time of reaching a final population size Nf
+t_final(N0, pop_growth, Nf) = log(Nf/N0) / pop_growth
+# Time when the expected number of mutations (in the total population) is given by M; this is used to determine the duration of the growth phase of the simulated fluctuation assays
+function t_expected_m(N0, pop_growth, mutation_off, switching, net_growth_on, mutation_on, M)
+    if net_growth_on == 0.
+        return log(M*pop_growth/(N0*mutation_off + switching*N0/pop_growth*mutation_on)) / pop_growth
+    elseif net_growth_on == pop_growth
+        f1(t) = N0*exp(pop_growth*t)/pop_growth * (mutation_on*switching*(t - 1/pop_growth) + mutation_off) - M
+        return find_zero(f1, 0.)
+    else
+        f2(t) = mutation_on*switching*N0/(pop_growth-net_growth_on) * (exp(pop_growth*t)/pop_growth - exp(net_growth_on*t)/net_growth_on) + mutation_off*N0*exp(pop_growth*t)/pop_growth - M
+        return find_zero(f2, 0.)
     end
 end
 
