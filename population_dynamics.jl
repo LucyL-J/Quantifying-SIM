@@ -224,7 +224,7 @@ function simulate_fluctuation_assays(p; p2="", set_seed=false)
                 mutation_on = 10^r * mutation_off   
             elseif range_parameter == "divisions_on"
                 division_on = r
-            elseif range_parameter == "rel_division_mutants"
+            elseif range_parameter == "fitness_mutants"
                 fitness_m_off = r
             elseif range_parameter == "deaths_off"
                 death_off = r
@@ -263,9 +263,9 @@ function simulate_fluctuation_assays(p; p2="", set_seed=false)
             elseif range_parameter2 == "divisions_on"
                 division_on = r2
                 p_folder = "/rel-div_" 
-            elseif range_parameter2 == "rel_fitness_mutants"
+            elseif range_parameter2 == "fitness_mutants"
                 fitness_m_off = r2
-                p_folder = "/rel-fit-mutants_" 
+                p_folder = "/fit-mutants_" 
             elseif range_parameter2 == "deaths_off"
                 death_off = r2
                 p_folder = "/death-off_" 
@@ -286,7 +286,7 @@ function simulate_fluctuation_assays(p; p2="", set_seed=false)
                     mutation_on = 10^r * mutation_off   
                 elseif range_parameter == "divisions_on"
                     division_on = r
-                elseif range_parameter == "rel_fitness_mutants"
+                elseif range_parameter == "fitness_mutants"
                     fitness_m_off = r
                 elseif range_parameter == "deaths_off"
                     death_off = r
