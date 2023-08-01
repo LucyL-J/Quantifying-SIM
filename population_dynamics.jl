@@ -164,7 +164,7 @@ end
 # Mutant count data under the heterogeneous-response model for a given number of cultures 
 # Optional: cell death of response-off and/or -on cells, differential fitness of response-off mutants and initial fraction of response-on subpopulation
 # Returns mutant counts, final population size and final fraction of response-on subpopulation 
-function mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures::Int; death_off=0., fitness_m_off=1., death_on=0., f0_on=switching/(division_off-death_off-(division_on-death_on)))
+function mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures::Int; death_off=0., fitness_m_off=1., death_on=0., f0_on=switching/(division_off-death_off))
     mc = Vector{Int}(undef, num_cultures)
     for i = 1:num_cultures
         mc[i] = mutant_count(T, N0*(1-f0_on), division_off, death_off, fitness_m_off, mutation_off, switching, N0*f0_on, division_on, death_on, mutation_on)
@@ -204,7 +204,7 @@ function simulate_fluctuation_assays(p; p2="", set_seed=false)
     fitness_m_off = 1.
     death_off = 0.
     death_on = 0.
-    f0_on = switching/(division_off-death_off-(division_on-death_on))
+    f0_on = switching/(division_off-death_off)
     # Data frames in which the simulated data will be stored
     mutant_counts = DataFrame()
     population_sizes = DataFrame(parameter=["final_pop_size", "fraction_subpop_on"]) # Under stress, final population size and fraction of response-on subpopulation are stored
@@ -248,7 +248,7 @@ function simulate_fluctuation_assays(p; p2="", set_seed=false)
         end
         CSV.write("output_data/"*p*"/mutant_counts_ns.csv", mutant_counts_ns)
         CSV.write("output_data/"*p*"/population_sizes_ns.csv", population_sizes_ns)
-    # A second parameter is varied making the parameter regime 2D
+    # A second parameter is varied making the parameter range 2D
     else                                                                   
         parameters2 = DataFrame(CSV.File("input_parameters/"*p2*".csv"))
         range_parameter2 = parameters2.range_parameter[1]                            
