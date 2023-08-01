@@ -46,15 +46,16 @@ t_first_m(N0, pop_growth, mutation) = gamma(0., mutation*N0/pop_growth) / pop_gr
 # Expected time of reaching a final population size Nf
 t_final(N0, pop_growth, Nf) = log(Nf/N0) / pop_growth
 # Time when the expected number of mutations (in the total population) is given by M; this is used to determine the duration of the growth phase of the simulated fluctuation assays
-function t_expected_m(N0, pop_growth, mutation_off, switching, net_growth_on, mutation_on, M)
+function t_expected_m(N0_off, pop_growth, mutation_off, switching, N0_on, net_growth_on, mutation_on, M)
     if net_growth_on == 0.
-        return log(M*pop_growth/(N0*mutation_off + switching*N0/pop_growth*mutation_on)) / pop_growth
-    elseif net_growth_on == pop_growth
-        f1(t) = N0*exp(pop_growth*t)/pop_growth * (mutation_on*switching*(t - 1/pop_growth) + mutation_off) - M
+        f1(t) = N0_off/pop_growth*(mutation_off + switching*mutation_on/pop_growth)*(exp(pop_growth*t) - 1) + mutation_on*(N0_on - switching*N0_off/pop_growth)*t - M
         return find_zero(f1, 0.)
-    else
-        f2(t) = mutation_on*switching*N0/(pop_growth-net_growth_on) * (exp(pop_growth*t)/pop_growth - exp(net_growth_on*t)/net_growth_on) + mutation_off*N0*exp(pop_growth*t)/pop_growth - M
+    elseif net_growth_on == pop_growth
+        f2(t) = (mutation_off*N0_off/pop_growth + mutation_on*(N0_on - switching*N0_off/pop_growth)/pop_growth) * (exp(pop_growth*t) - 1) + mutation_on*switching*N0_off*t*exp(pop_growth*t)/pop_growth - M
         return find_zero(f2, 0.)
+    else
+        f3(t) = N0_off*(mutation_off + switching*mutation_on/(pop_growth-net_growth_on))*(exp(pop_growth*t) - 1)/pop_growth + mutation_on*(N0_on - switching*N0_off/(pop_growth-net_growth_on))*(exp(net_growth_on*t) - 1)/net_growth_on - M
+        return find_zero(f3, 0.)
     end
 end
 
