@@ -1,4 +1,4 @@
-using Roots, Distributions, SpecialFunctions
+using Roots, Distributions, SpecialFunctions, CSV, DataFrames, Random
 
 # Population growth dynamics of non-mutants (deterministic)
 # Growth of response-off subpopulation: exponential growth with population growth rate = division-death-switching rate, initial population size N0
@@ -117,7 +117,7 @@ function number_cells(T, birth_off, death_off, switching, birth_on, death_on)
     end
 end
 
-# Simulating fluctuation assays
+# Simulating the population dynamics during the growth phase of a fluctuation assay
 # Mutant count under the homogeneous-response model with cell death and differential fitness of mutants
 function mutant_count(T, N0, division, death, fitness_m, mutation)
     t = 0.
@@ -174,6 +174,146 @@ function mutant_count(T, N0, division_off, mutation_off, switching, division_on,
     return mc, Nf_off+Nf_on, Nf_on/(Nf_off+Nf_on)
 end
 
+# Simulate fluctuation assays for a parameter range given in the file of input parameters p.csv
+# The output data is saved into a folder named p 
+# More information can be found in the README file
+function simulate_fluctuation_assays(p; p2="", set_seed=false)
+    # Reading the input parameters
+    parameters = DataFrame(CSV.File("input_parameters/"*p*".csv"))             
+    if set_seed == true
+        rng=Random.seed!(parameters.random_seed[1])        # Seed for random number generator to reproduce the exact data in the manuscript
+    end
+    try
+        mkdir("output_data/"*p)                            # Make a folder to store the output data in
+    catch e
+    end
+    N0 = parameters.initial_population_size[1]
+    division_off = parameters.divisions_off[1]
+    mutation_off = parameters.mutations_off[1]
+    switching = parameters.switchings[1]
+    division_on = parameters.divisions_on[1]
+    num_cultures = parameters.number_cultures[1]
+    mutation_on = parameters.mutations_on[1]
+    expected_M = parameters.expected_mutations[1]
+    R = parameters.number_fluctuation_assays[1]                                # Number of fluctuation assays that is simulated
+    range_parameter = parameters.range_parameter[1]                            # This parameter is varied; the other parameters are fixed
+    r_start = parameters.r_start[1]
+    r_end = parameters.r_end[1]
+    r_i = parameters.r_increment[1]
+    j = 1
+    fitness_m_off = 1.
+    death_off = 0.
+    death_on = 0.
+    f0_on = switching/(division_off-death_off-(division_on-death_on))
+    # Data frames in which the simulated data will be stored
+    mutant_counts = DataFrame()
+    population_sizes = DataFrame(parameter=["final_pop_size", "fraction_subpop_on"]) # Under stress, final population size and fraction of response-on subpopulation are stored
+    mutant_counts_ns = DataFrame()
+    population_sizes_ns = DataFrame(parameter=["final_pop_size"])
+    T_ns = t_expected_m(N0, division_off, mutation_off, 0., 0, 0., 0., expected_M) # Under no stress (ns) conditions, there is no response-on subpopulation
+    Nf_ns = pop_size(T_ns, N0, division_off)
+    population_sizes_ns.value = [Nf_ns]
+    try
+        mkdir("output_data/"*p)
+    catch e
+    end
+    # Default: only one parameter is varied
+    if p2 == ""                                                         
+        for r = r_start:r_i:r_end
+            if range_parameter == "mutation_increase_log"
+                mutation_on = 10^r * mutation_off   
+            elseif range_parameter == "divisions_on"
+                division_on = r
+            elseif range_parameter == "rel_division_mutants"
+                fitness_m_off = r
+            elseif range_parameter == "deaths_off"
+                death_off = r
+            elseif range_parameter == "deaths_on"
+                death_on = r
+            elseif range_parameter == "switchings_log"
+                switching = 10^r
+            end
+            T = t_expected_m(N0*(1-f0_on), division_off-switching-death_off, mutation_off, switching, N0*f0_on, division_on, mutation_on, expected_M)
+            for i = 1:R
+                mc, Nf, f_on = mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures, fitness_m_off=fitness_m_off, death_off=death_off, death_on=death_on, f0_on=f0_on)
+                mutant_counts[:, "$i"] = mc
+                mc_ns, Nf_ns = mutant_count(T_ns, N0, division_off, mutation_off, num_cultures)
+                mutant_counts_ns[:, "$(R*(j-1)+i)"] = mc_ns
+            end
+            mc, Nf, f_on = mc, Nf, f_on = mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures, fitness_m_off=fitness_m_off, death_off=death_off, death_on=death_on, f0_on=f0_on)
+            population_sizes.value = [Nf, f_on]
+            CSV.write("output_data/"*p*"/mutant_counts_$j.csv", mutant_counts)
+            CSV.write("output_data/"*p*"/population_sizes_$j.csv", population_sizes)
+            j += 1
+        end
+        CSV.write("output_data/"*p*"/mutant_counts_ns.csv", mutant_counts_ns)
+        CSV.write("output_data/"*p*"/population_sizes_ns.csv", population_sizes_ns)
+    # A second parameter is varied making the parameter regime 2D
+    else                                                                   
+        parameters2 = DataFrame(CSV.File("input_parameters/"*p2*".csv"))
+        range_parameter2 = parameters2.range_parameter[1]                            
+        r_start2 = parameters2.r_start[1]
+        r_end2 = parameters2.r_end[1]
+        r_i2 = parameters2.r_increment[1]
+        j2 = 1
+        for r2 = r_start2:r_i2:r_end2
+            if range_parameter2 == "mutation_increase_log"
+                mutation_on = 10^r2 * mutation_off
+                p_folder = "/mu-inc_"   
+            elseif range_parameter2 == "divisions_on"
+                division_on = r2
+                p_folder = "/rel-div_" 
+            elseif range_parameter2 == "rel_fitness_mutants"
+                fitness_m_off = r2
+                p_folder = "/rel-fit-mutants_" 
+            elseif range_parameter2 == "deaths_off"
+                death_off = r2
+                p_folder = "/death-off_" 
+            elseif range_parameter2 == "deaths_on"
+                death_on = r2
+                p_folder = "/death-on_" 
+            elseif range_parameter2 == "switchings_log"
+                switching = 10^r2
+                p_folder = "/switch_" 
+            end
+            j = 1
+            try
+                mkdir("output_data/"*p*p_folder*"$j2")
+            catch e
+            end
+            for r = r_start:r_i:r_end
+                if range_parameter == "mutation_increase_log"
+                    mutation_on = 10^r * mutation_off   
+                elseif range_parameter == "divisions_on"
+                    division_on = r
+                elseif range_parameter == "rel_fitness_mutants"
+                    fitness_m_off = r
+                elseif range_parameter == "deaths_off"
+                    death_off = r
+                elseif range_parameter == "deaths_on"
+                    death_on = r
+                elseif range_parameter == "switchings_log"
+                    switching = 10^r
+                end
+                T = t_expected_m(N0*(1-f0_on), division_off-switching-death_off, mutation_off, switching, N0*f0_on, division_on, mutation_on, expected_M)
+                for i = 1:R
+                    mc, Nf, f_on = mc, Nf, f_on = mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures, fitness_m_off=fitness_m_off, death_off=death_off, death_on=death_on, f0_on=f0_on)
+                    mutant_counts[:, "$i"] = mc
+                    mc_ns, Nf_ns = mutant_count(T_ns, N0, division_off, mutation_off, num_cultures)
+                    mutant_counts_ns[:, "$(R*(j-1)+i)"] = mc_ns
+                end
+                mc, Nf, f_on = mc, Nf, f_on = mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures, fitness_m_off=fitness_m_off, death_off=death_off, death_on=death_on, f0_on=f0_on)
+                population_sizes.value = [Nf, f_on]
+                CSV.write("output_data/"*p*p_folder*"$j2/mutant_counts_$j.csv", mutant_counts)
+                CSV.write("output_data/"*p*p_folder*"$j2/population_sizes_$j.csv", population_sizes)
+                j += 1
+            end
+            CSV.write("output_data/"*p*p_folder*"$j2/mutant_counts_ns.csv", mutant_counts_ns)
+            CSV.write("output_data/"*p*p_folder*"$j2/population_sizes_ns.csv", population_sizes_ns)
+            j2 += 1
+        end
+    end
+end
 
 # Testing validity of approximations
 # Simulating non-mutant dynamics: response-off subpopulation deterministic and response-on subpopulation stochastic
