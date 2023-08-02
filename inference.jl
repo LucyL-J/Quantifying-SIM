@@ -61,9 +61,21 @@ end
 # Mutation rate estimation algorithms (if the optimisation fails, AIC=Inf is returned)
 # Joint inference permissive+stressful condition
 function estimate_mu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fitness_m=1.) # Estimating mutation rates under permissive/stressful conditons for the homogeneous-response model with optional differential fitness of mutants
-    x_p = estimate_mu_hom(mc_p, Nf_p, fitness_m=fitness_m)                                           # Estimation of mutation rate and optional differential fitness: permissive
-    x_s = estimate_mu_hom(mc_s, Nf_s, fitness_m=fitness_m)                      # Estimation of mutation rate and optional differential fitness: stress
-    return [x_p[1:end-1]; x_s[1:end-1]; x_p[end]+x_s[end]]                               # Returns inferred parameters plus AIC value (inferences permissive/stressful are independent)
+    if fitness_m == "joint"
+        mu_p, rho_p, AIC_p = estimate_mu_hom(mc_p, Nf_p, fitness_m="infer")
+        mu_s, rho_s, AIC_s = estimate_mu_hom(mc_s, Nf_s, fitness_m="infer")
+        log_likelihood_para_3(para) = -log_likelihood(mc_p, para[1], Nf_p, mc_s, Nf_s, para[2], para[3]) 
+        res = Optim.optimize(log_likelihood_para_3, [mu_p, mu_s, rho_p])
+        if Optim.converged(res) == true
+            return[Optim.minimizer(res)[1],Optim.minimizer(res)[3],Optim.minimizer(res)[2],Optim.minimizer(res)[3], 6 + 2*Optim.minimum(res)]
+        else
+            return [0., -1., 0., -1., Inf]
+        end
+    else
+        x_p = estimate_mu_hom(mc_p, Nf_p, fitness_m=fitness_m)                               # Estimation of mutation rate and optional differential fitness: permissive
+        x_s = estimate_mu_hom(mc_s, Nf_s, fitness_m=fitness_m)                               # Estimation of mutation rate and optional differential fitness: stress
+        return [x_p[1:end-1]; x_s[1:end-1]; x_p[end]+x_s[end]]                               # Returns inferred parameters plus AIC value (inferences permissive/stressful are independent)
+    end
 end
 
 # Inference for a single condition
@@ -94,8 +106,20 @@ function log_likelihood(mc::Vector{Int}, mutation_per_gen, fitness_m, Nf)
         return -Inf
     else
         p = P_mutant_count(maximum(mc), mutation_per_gen, Nf, fitness_m=fitness_m)
-        mc[mc.>1000] .= 1000                                          # Any mutant count >1000 is considered as =1000 instead
+        mc[mc.>1000] .= 1000                                              # Any mutant count >1000 is considered as =1000 instead
         return sum(counts(mc, 0:maximum(mc)) .* log.(p))
+    end
+end
+# Log-likelihood to observe mutant counts under permissive/stressful conditions with a joint differential fitness of mutants
+function log_likelihood(mc_p::Vector{Int}, mutation_p_per_gen, Nf_p, mc_s::Vector{Int}, Nf_s, mutation_s_per_gen, fitness_m) 
+    if mutation_p_per_gen<=0. || Nf_p<=0. || Nf_s<=0. || mutation_s_per_gen<=0. || fitness_m<0.                               # Boundaries of the parameter regime
+        return -Inf
+    else
+        p_p = P_mutant_count(maximum(mc_p), mutation_p_per_gen, Nf_p, fitness_m=fitness_m)                                    # Mutant count distribution without stress
+        p_s = P_mutant_count(maximum(mc_s), mutation_s_per_gen, Nf_s, fitness_m=fitness_m) 
+        mc_p[mc_p.>1000] .= 1000                                                                                              # A mutant count >1000 is considered as =1000 instead
+        mc_s[mc_s.>1000] .= 1000
+        return sum(counts(mc_p, 0:maximum(mc_p)) .* log.(p_p)) + sum(counts(mc_s, 0:maximum(mc_s)) .* log.(p_s))              # The two observations are independent and their probabilities can be multiplied
     end
 end
 
