@@ -1,4 +1,4 @@
-using Distributions, SpecialFunctions
+using Distributions, SpecialFunctions, Optim, StatsBase
 
 # The following recursive formulas for the pdf of the mutant count distribution are based on 
 # Keller, P., & Antal, T. (2015). Mutant number distribution in an exponentially growing population. Journal of Statistical Mechanics: Theory and Experiment, 2015(1), P01011. https://doi.org/10.1088/1742-5468/2015/01/P01011
@@ -56,4 +56,70 @@ function P_mutant_count(K::Int, mutation_off_per_div, Nf, mutation_on_per_div, f
         p[k+1] = pk
     end
     return p
+end
+
+# Mutation rate estimation algorithms (if the optimisation fails, AIC=Inf is returned)
+# Joint inference permissive+stressful condition
+function estimate_mu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fitness_m=1.) # Estimating mutation rates under permissive/stressful conditons for the homogeneous-response model with optional differential fitness of mutants
+    x_p = estimate_mu_hom(mc_p, Nf_p, fitness_m=fitness_m)                                           # Estimation of mutation rate and optional differential fitness: permissive
+    x_s = estimate_mu_hom(mc_s, Nf_s, fitness_m=fitness_m)                      # Estimation of mutation rate and optional differential fitness: stress
+    return [x_p[1:end-1]; x_s[1:end-1]; x_p[end]+x_s[end]]                               # Returns inferred parameters plus AIC value (inferences permissive/stressful are independent)
+end
+
+# Inference for a single condition
+function estimate_mu_hom(mc::Vector{Int}, Nf; fitness_m=1.)                        # Estimating the mutation rate for a homogeneous population with optional differential fitness of mutants
+    if fitness_m == "infer"                                                        # Differential fitness of mutants is inferred 
+        log_likelihood_para_2(para) = -log_likelihood(mc, para[1], para[2], Nf)
+        res = Optim.optimize(log_likelihood_para_2, [initial_mu(mc, Nf, 100), 1.]) # 2 inference parameters
+        if Optim.converged(res) == true
+            return [Optim.minimizer(res); 4 + 2*Optim.minimum(res)]                # Mutation rate, differential fitness of mutants, AIC
+        else
+            return [0., -1., Inf]
+        end                                                   
+    else                                                                           # Differential fitness of mutants is not inferred and set to 1 instead
+        log_likelihood_para_1(para) = -log_likelihood(mc, para, fitness_m, Nf)
+        res = Optim.optimize(log_likelihood_para_1, 0., maximum(mc)/Nf)            # 1 inference parameter
+        if Optim.converged(res) == true
+            return [Optim.minimizer(res), 2 + 2*Optim.minimum(res)]                # Mutation rate, AIC
+        else
+            return [0., Inf]                                                       
+        end                                                                              
+    end
+end
+
+# Log-likelihood functions
+# Log-likelihood to observe a mutant count mc for a homogeneous population with differential fitness of mutants
+function log_likelihood(mc::Vector{Int}, mutation_per_gen, fitness_m, Nf) 
+    if mutation_per_gen<=0. || fitness_m<0. || Nf<=0.                     # Boundaries of the parameter regime
+        return -Inf
+    else
+        p = P_mutant_count(maximum(mc), mutation_per_gen, Nf, fitness_m=fitness_m)
+        mc[mc.>1000] .= 1000                                          # Any mutant count >1000 is considered as =1000 instead
+        return sum(counts(mc, 0:maximum(mc)) .* log.(p))
+    end
+end
+
+# Probability generating function method used to set initial value of the mutation rate based on
+# Gillet-Markowska, A., Louvel, G., & Fischer, G. (2015). bz-rates: A web tool to estimate mutation rates from fluctuation analysis. G3: Genes, Genomes, Genetics, 5(11), 2323–2327. https://doi.org/10.1534/g3.115.019836
+function empirical_pgf(z, x) # Empirical probability generating function calculated from a vector of observed data
+    g = 0
+    for i in x
+        g += z^i
+    end
+    g /= length(x)
+    return g
+end
+function initial_mu(z, mc::Vector{Int}, Nf)             # Estimate the mutation rate for a homogeneous population and given z        
+    if z == 0.
+        return log(empirical_pgf(z, mc)) / Nf
+    else
+        return z/((1-z)*log(1-z)) * log(empirical_pgf(z, mc)) / Nf
+    end
+end
+function initial_mu(mc::Vector{Int}, Nf, z_values::Int) # Estimate the mutation rate for a homogeneous population by averaging over a number of z values
+    mu = 0.
+    for i = 0:z_values-1
+        mu += initial_mu(i/z_values, mc, Nf)
+    end
+    return maximum([mu/z_values, 0.])
 end
