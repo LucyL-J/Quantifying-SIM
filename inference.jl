@@ -133,7 +133,7 @@ function estimate_mu_het(mc::Vector{Int}, mu_off_per_div, Nf; infer_div_on=false
         end
     else                                                                                                           # Relative division rate of response-on cells is inferred
         log_likelihood_para_3(para) = -log_likelihood(mc, mu_off_per_div, Nf, para[1], para[2], para[3])
-        res = Optim.optimize(log_likelihood_para_3, [initial_mu(mc, mu_off_per_div, Nf, 0.05, 100), 0.5, 0.05])    # 3 inference parameters; initial value for relative division rate of response-on cells is set to 0.5, for the fraction of response-on subpopulation is set to 5%
+        res = Optim.optimize(log_likelihood_para_3, [initial_mu(mc, mu_off_per_div, Nf, 0.05, 100), 0.1, 0.05])    # 3 inference parameters; initial value for relative division rate of response-on cells is set to 0.1, for the fraction of response-on subpopulation is set to 5%
         if Optim.converged(res) == true
             return Optim.minimizer(res)                                                                            # Mutation rate of response-on cells, relative division rate response-on cells, fraction of response-on subpopulation
         else
@@ -167,7 +167,7 @@ function log_likelihood(mc_p::Vector{Int}, mu_p_per_gen, Nf_p, mc_s::Vector{Int}
 end
 # Log-likelihood to observe a mutant count mc for a heterogeneous population with relative division rate of response-on cells 
 function log_likelihood(mc::Vector{Int}, mu_off_per_div, Nf, mu_on_per_div, rel_div_on, f_on) 
-    if mu_off_per_div<=0. || Nf<=0. || mu_on_per_div<=0. || rel_div_on<0. || f_on<0.                     # Boundaries of the parameter regime
+    if mu_off_per_div<=0. || Nf<=0. || mu_on_per_div<=0. || rel_div_on<0. || f_on<0. || f_on>1.          # Boundaries of the parameter regime
         return -Inf
     else
         p = P_mutant_count(maximum(mc), mu_off_per_div, Nf, mu_on_per_div, f_on, rel_div_on=rel_div_on)
@@ -179,7 +179,7 @@ end
 # (a) homogeneous population without differential fitness of mutants
 # (b) heterogeneous population with relative division rate of response-on cells 
 function log_likelihood(mc_p::Vector{Int}, mu_off_per_div, Nf_p, mc_s::Vector{Int}, Nf_s, mu_on_per_div, rel_div_on, f_on)  
-    if mu_off_per_div<=0. || Nf_p<=0. || mu_on_per_div<=0. || rel_div_on<0. || f_on<0. || Nf_s<=0.                          # Boundaries of the parameter regime
+    if mu_off_per_div<=0. || Nf_p<=0. || mu_on_per_div<=0. || rel_div_on<0. || f_on<0. || Nf_s<=0. || f_on>1.               # Boundaries of the parameter regime
         return -Inf
     else
         p_p = P_mutant_count(maximum(mc_p), mu_off_per_div, Nf_p)                                                           # Mutant count distribution: permissive
