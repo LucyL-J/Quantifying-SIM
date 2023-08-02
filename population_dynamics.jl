@@ -175,8 +175,7 @@ function mutant_count(T, N0, division_off, mutation_off, switching, division_on,
 end
 
 # Simulate fluctuation assays for a parameter range given in the file of input parameters p.csv
-# The output data is saved into a folder named p 
-# More information can be found in the README file
+# The output data is saved into a folder named p (more information can be found in the README file)
 function simulate_fluctuation_assays(p; p2="", set_seed=false)
     # Reading the input parameters
     parameters = DataFrame(CSV.File("input_parameters/"*p*".csv"))             
@@ -208,11 +207,11 @@ function simulate_fluctuation_assays(p; p2="", set_seed=false)
     # Data frames in which the simulated data will be stored
     mutant_counts = DataFrame()
     population_sizes = DataFrame(parameter=["final_pop_size", "fraction_subpop_on"]) # Under stress, final population size and fraction of response-on subpopulation are stored
-    mutant_counts_ns = DataFrame()
-    population_sizes_ns = DataFrame(parameter=["final_pop_size"])
-    T_ns = t_expected_m(N0, division_off, mutation_off, 0., 0, 0., 0., expected_M) # Under no stress (ns) conditions, there is no response-on subpopulation
-    Nf_ns = pop_size(T_ns, N0, division_off)
-    population_sizes_ns.value = [Nf_ns]
+    mutant_counts_p = DataFrame()
+    population_sizes_p = DataFrame(parameter=["final_pop_size"])
+    T_p = t_expected_m(N0, division_off, mutation_off, 0., 0, 0., 0., expected_M) # Under no stress (ns) conditions, there is no response-on subpopulation
+    Nf_p = pop_size(T_p, N0, division_off)
+    population_sizes_p.value = [Nf_p]
     try
         mkdir("output_data/"*p)
     catch e
@@ -237,8 +236,8 @@ function simulate_fluctuation_assays(p; p2="", set_seed=false)
             for i = 1:R
                 mc, Nf, f_on = mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures, fitness_m_off=fitness_m_off, death_off=death_off, death_on=death_on, f0_on=f0_on)
                 mutant_counts[:, "$i"] = mc
-                mc_ns, Nf_ns = mutant_count(T_ns, N0, division_off, mutation_off, num_cultures)
-                mutant_counts_ns[:, "$(R*(j-1)+i)"] = mc_ns
+                mc_p, Nf_p = mutant_count(T_p, N0, division_off, mutation_off, num_cultures)
+                mutant_counts_p[:, "$(R*(j-1)+i)"] = mc_p
             end
             mc, Nf, f_on = mc, Nf, f_on = mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures, fitness_m_off=fitness_m_off, death_off=death_off, death_on=death_on, f0_on=f0_on)
             population_sizes.value = [Nf, f_on]
@@ -246,8 +245,8 @@ function simulate_fluctuation_assays(p; p2="", set_seed=false)
             CSV.write("output_data/"*p*"/population_sizes_$j.csv", population_sizes)
             j += 1
         end
-        CSV.write("output_data/"*p*"/mutant_counts_ns.csv", mutant_counts_ns)
-        CSV.write("output_data/"*p*"/population_sizes_ns.csv", population_sizes_ns)
+        CSV.write("output_data/"*p*"/mutant_counts_p.csv", mutant_counts_p)
+        CSV.write("output_data/"*p*"/population_sizes_p.csv", population_sizes_p)
     # A second parameter is varied making the parameter range 2D
     else                                                                   
         parameters2 = DataFrame(CSV.File("input_parameters/"*p2*".csv"))
@@ -299,8 +298,8 @@ function simulate_fluctuation_assays(p; p2="", set_seed=false)
                 for i = 1:R
                     mc, Nf, f_on = mc, Nf, f_on = mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures, fitness_m_off=fitness_m_off, death_off=death_off, death_on=death_on, f0_on=f0_on)
                     mutant_counts[:, "$i"] = mc
-                    mc_ns, Nf_ns = mutant_count(T_ns, N0, division_off, mutation_off, num_cultures)
-                    mutant_counts_ns[:, "$(R*(j-1)+i)"] = mc_ns
+                    mc_p, Nf_p = mutant_count(T_p, N0, division_off, mutation_off, num_cultures)
+                    mutant_counts_p[:, "$(R*(j-1)+i)"] = mc_p
                 end
                 mc, Nf, f_on = mc, Nf, f_on = mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures, fitness_m_off=fitness_m_off, death_off=death_off, death_on=death_on, f0_on=f0_on)
                 population_sizes.value = [Nf, f_on]
@@ -308,8 +307,8 @@ function simulate_fluctuation_assays(p; p2="", set_seed=false)
                 CSV.write("output_data/"*p*p_folder*"$j2/population_sizes_$j.csv", population_sizes)
                 j += 1
             end
-            CSV.write("output_data/"*p*p_folder*"$j2/mutant_counts_ns.csv", mutant_counts_ns)
-            CSV.write("output_data/"*p*p_folder*"$j2/population_sizes_ns.csv", population_sizes_ns)
+            CSV.write("output_data/"*p*p_folder*"$j2/mutant_counts_p.csv", mutant_counts_p)
+            CSV.write("output_data/"*p*p_folder*"$j2/population_sizes_p.csv", population_sizes_p)
             j2 += 1
         end
     end
