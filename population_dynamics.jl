@@ -118,7 +118,7 @@ function number_cells(T, birth_off, death_off, switching, birth_on, death_on)
 end
 
 # Simulating the population dynamics during the growth phase of a fluctuation assay
-# Mutant count under the homogeneous-response model with cell death and differential fitness of mutants
+# Mutant count for a homogeneous population with cell death and differential fitness of mutants
 function mutant_count(T, N0, division, death, fitness_m, mutation)
     t = 0.
     m = 0
@@ -130,7 +130,7 @@ function mutant_count(T, N0, division, death, fitness_m, mutation)
     end
     return m
 end
-# Mutant count data under the homogeneous-response model for a given number of cultures
+# Mutant count data for a homogeneous population and a given number of cultures
 # Optional: cell death and differential fitness of mutants
 # Returns mutant counts and final population size
 function mutant_count(T, N0, division, mutation, num_cultures::Int; death=0., fitness_m=1.)
@@ -141,7 +141,7 @@ function mutant_count(T, N0, division, mutation, num_cultures::Int; death=0., fi
     Nf = pop_size(T, N0, division-death)
     return mc, Nf
 end
-# Mutant count under the heterogeneous-response model with response-off and -on subpopulation (division, death and mutation rate each and switching from response-off to -on)
+# Mutant count for a heterogeneous population with response-off and -on subpopulation (division, death and mutation rate each and switching from response-off to -on)
 function mutant_count(T, N0_off, division_off, death_off, fitness_m_off, mutation_off, switching, N0_on, division_on, death_on, mutation_on)
     pop_growth = division_off - death_off - switching
     t = 0.
@@ -161,7 +161,7 @@ function mutant_count(T, N0_off, division_off, death_off, fitness_m_off, mutatio
     end
     return m
 end
-# Mutant count data under the heterogeneous-response model for a given number of cultures 
+# Mutant count data for a heterogeneous population and a given number of cultures 
 # Optional: cell death of response-off and/or -on cells, differential fitness of response-off mutants and initial fraction of response-on subpopulation
 # Returns mutant counts, final population size and final fraction of response-on subpopulation 
 function mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures::Int; death_off=0., fitness_m_off=1., death_on=0., f0_on=switching/(division_off-death_off))
