@@ -127,6 +127,9 @@ end
 # Mutation rate estimation for ranges of parameters
 # The inferred parameters is saved into a folder named p (more information can be found in the README file)
 function infer_mutation_rates(p, m; p_folder="") # Parameter range p and inference method m; optional input when a second parameter range is considered
+    parameters = DataFrame(CSV.File("input_parameters/"*p*".csv"))
+    range_parameter = parameters.range_parameter[1]                                         # The parameter that is varied 
+    R = parameters.number_fluctuation_assays[1]
     try
         mkdir("inferred_parameters/"*p)                            # Make a folder to store the inferred parameters in
     catch e
@@ -136,9 +139,6 @@ function infer_mutation_rates(p, m; p_folder="") # Parameter range p and inferen
         mkdir("inferred_parameters/"*p)                            # Make a folder to store the inferred parameters in
     catch e
     end
-    parameters = DataFrame(CSV.File("input_parameters/"*p*".csv"))
-    range_parameter = parameters.range_parameter[1]                                         # The parameter that is varied 
-    R = parameters.number_fluctuation_assays[1]
     mc_p = DataFrame(CSV.File("output_data/"*p*"/mutant_counts_p.csv"))             # Read the output data without stress
     J = Int(size(mc)[2]/R)
     Nf_p = DataFrame(CSV.File("output_data/"*p*"/population_sizes_p.csv")).value[1]
