@@ -1,3 +1,15 @@
+import Pkg
+Pkg.activate("packages")
+include("population_dynamics.jl")
+include("inference.jl")
+try
+    mkdir("output_data")
+catch e
+end
+try
+    mkdir("inferred_parameters")
+catch e
+end
 using CSV, DataFrames, Random
 
 # Simulate fluctuation assays for a parameter range given in the file of input parameters p.csv
@@ -258,4 +270,33 @@ function infer_mutation_rates(p, m, p2) # Two parameter ranges are given as inpu
     for j2 = 1:J2
         infer_mutation_rates(p, m, p_folder=p_folder*"$j2") 
     end
+end
+
+# Reproduce all data in the manuscript
+
+# Parameter regime: mutation-rate increase x switching rate
+# Estimation method: heterogeneous-response model with setting the relative division rate of response-on cells to zero (known fraction of response-on subpopulation)
+simulate_fluctuation_assays("range_mu-inc", p2="range_switching")
+infer_mutation_rates("range_mu-inc", "het_zero_div", "range_switching")
+
+# Parameter regime: death rate of response-off x -on cells, for switching rates 0.01 and 0.05
+# Estimation method: heterogeneous-response model with setting the relative division rate of response-on cells to zero (known fraction of response-on subpopulation)
+for i in [1, 5]
+    simulate_fluctuation_assays("range_death-off_switch-$i", p2="range_death-on_switch-$i")
+    infer_mutation_rates("range_death-off_switch-$i", "het_zero_div", "range_death-on_switch-$i")
+end
+
+# Parameter regime: differential fitness of response-off mutants
+# Estimation method: heterogeneous-response model with setting the relative division rate of response-on cells to zero (known fraction of response-on subpopulation)
+simulate_fluctuation_assays("range_fit-mut")
+infer_mutation_rates("range_fit-mut", "het_zero_div")
+
+# Parameter regime: relative division rate of response-on cells
+# Estimation methods
+# (i) Heterogeneous-response model with setting the relative division rate of response-on cells to zero/true value or inferring it (known fraction of response-on subpopulation)
+# (ii) Heterogeneous-response model with setting the relative division rate of response-on cells to zero (unknown fraction of response-on subpopulation)
+# (iii) Homogeneous-response model without/with/jointly inferring the differential fitness of mutants
+simulate_fluctuation_assays("range_rel-div-on")
+for m in ["het_zero_div", "het_set_div", "het_infer_div", "het_zero_div_unknown_fraction", "hom_no_fit", "hom_infer_fit", "hom_joint_fit"]
+    infer_mutation_rates("range_rel-div-on", m)
 end
