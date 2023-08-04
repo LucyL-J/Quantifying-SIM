@@ -185,18 +185,18 @@ end
 # Returns the number of response-on cells at time T
 function non_mutants_on(T, N0_off, pop_growth, switching, N0_on::Int, division_on, death_on, N_max)
     if N0_on >= N_max
-        return pop_size(T, N0_off, pop_growth, switching, N0_on, division_on-death_on)
+        return Int(round(pop_size(T, N0_off, pop_growth, switching, N0_on, division_on-death_on)))
     else
         t = 0.
         n_on = 0
         for i = 1:N0_on
-            n_on += number_cells(T, division_on, death_on)
+            n_on += number_cells(T, division_on, death_on, N_max=N_max)
         end
         while t < T
             y = rand(Exponential(1))
             tau = interval_event(t, N0_off, pop_growth, switching, y)
             t += tau
-            n_on += number_cells(T-t, division_on, death_on)
+            n_on += number_cells(T-t, division_on, death_on, N_max=N_max)
         end
         return n_on
     end

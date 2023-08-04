@@ -81,8 +81,8 @@ function simulate_fluctuation_assays(p; p2="", set_seed=false, A1=false)
                 for f = 1:length(f0_on)
                     t1 = t_first_m(N0, division_off-switching-death_off, mutation_off*(1-0.01*f0_on[f])+mutation_on*0.01*f0_on[f])
                     for i = 1:R
-                        nm1[i, f] = non_mutants_on(t1, N0*(1-0.01*f0_on[f]), division_off-switching-death_off, switching, Int(round(N0*0.01*f0_on[f])), division_on, death_on)
-                        nmf[i, f] = non_mutants_on(tf-t1, pop_size(t1, N0*(1-0.01*f0_on[f]), division_off-switching-death_off), division_off-switching-death_off, switching, nm1[i, f], division_on, death_on)
+                        nm1[i, f] = non_mutants_on(t1, N0*(1-0.01*f0_on[f]), division_off-switching-death_off, switching, Int(round(N0*0.01*f0_on[f])), division_on, death_on, N0)
+                        nmf[i, f] = non_mutants_on(tf-t1, pop_size(t1, N0*(1-0.01*f0_on[f]), division_off-switching-death_off), division_off-switching-death_off, switching, nm1[i, f], division_on, death_on, N0)
                     end
                     popsize_nm_on_t1[:, "$f"] = nm1[: ,f]
                     popsize_nm_on_tf[:, "$f"] = nmf[: ,f]
@@ -161,8 +161,8 @@ function simulate_fluctuation_assays(p; p2="", set_seed=false, A1=false)
                     for f = 1:length(f0_on)
                         t1 = t_first_m(N0, division_off-switching-death_off, mutation_off*(1-0.01*f0_on[f])+mutation_on*0.01*f0_on[f])
                         for i = 1:R
-                            nm1[i, f] = non_mutants_on(t1, N0*(1-0.01*f0_on[f]), division_off-switching-death_off, switching, Int(round(N0*0.01*f0_on[f])), division_on, death_on)
-                            nmf[i, f] = non_mutants_on(tf-t1, pop_size(t1, N0*(1-0.01*f0_on[f]), division_off-switching-death_off), division_off-switching-death_off, switching, nm1[i, f], division_on, death_on)
+                            nm1[i, f] = non_mutants_on(t1, N0*(1-0.01*f0_on[f]), division_off-switching-death_off, switching, Int(round(N0*0.01*f0_on[f])), division_on, death_on, N0)
+                            nmf[i, f] = non_mutants_on(tf-t1, pop_size(t1, N0*(1-0.01*f0_on[f]), division_off-switching-death_off), division_off-switching-death_off, switching, nm1[i, f], division_on, death_on, N0)
                         end
                         popsize_nm_on_t1[:, "$f"] = nm1[: ,f]
                         popsize_nm_on_tf[:, "$f"] = nmf[: ,f]
@@ -346,4 +346,4 @@ end
 # Parameter regime: switching rate x relative division rate of response-on cells
 # Simulating response-on non-mutants stochastically to test assumption A1
 # Uncomment the line below to reproduce all data in the Supplementary Material
-#simulate_fluctuation_assays("range_switching", p2="range_rel-div-on", set_seed=true, A1=true)
+simulate_fluctuation_assays("range_switching", p2="range_rel-div-on", set_seed=true, A1=true)
