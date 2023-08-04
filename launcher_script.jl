@@ -14,7 +14,7 @@ using CSV, DataFrames, Random
 
 # Simulate fluctuation assays for a parameter range given in the file of input parameters p.csv
 # The output data is saved into a folder named p (more information can be found in the README file)
-function simulate_fluctuation_assays(p; p2="", set_seed=false)
+function simulate_fluctuation_assays(p; p2="", set_seed=false, A1=false)
     # Reading the input parameters
     parameters = DataFrame(CSV.File("input_parameters/"*p*".csv"))             
     if set_seed == true
@@ -42,17 +42,23 @@ function simulate_fluctuation_assays(p; p2="", set_seed=false)
     death_off = 0.
     death_on = 0.
     f0_on = switching/(division_off-death_off)
+    Nf = 10^9
     # Data frames in which the simulated data will be stored
-    mutant_counts = DataFrame()
-    population_sizes = DataFrame(parameter=["final_pop_size", "fraction_subpop_on"]) # Under stress, final population size and fraction of response-on subpopulation are stored
-    mutant_counts_p = DataFrame()
-    population_sizes_p = DataFrame(parameter=["final_pop_size"])
-    T_p = t_expected_m(N0, division_off, mutation_off, 0., 0, 0., 0., expected_M) # Under no stress (ns) conditions, there is no response-on subpopulation
-    Nf_p = pop_size(T_p, N0, division_off)
-    population_sizes_p.value = [Nf_p]
-    try
-        mkdir("output_data/"*p)
-    catch e
+    if A1 == true
+        f0_on = [0, 1]
+        f = length(f0_on)
+        popsize_nm_on_t1 = DataFrame()
+        popsize_nm_on_tf = DataFrame()
+        nm1 = Matrix{Int}(undef, (R, f))
+        nmf = Matrix{Int}(undef, (R, f))
+    else
+        mutant_counts = DataFrame()
+        population_sizes = DataFrame(parameter=["final_pop_size", "fraction_subpop_on"]) # Under stress, final population size and fraction of response-on subpopulation are stored
+        mutant_counts_p = DataFrame()
+        population_sizes_p = DataFrame(parameter=["final_pop_size"])
+        T_p = t_expected_m(N0, division_off, mutation_off, 0., 0, 0., 0., expected_M) # Under no stress (ns) conditions, there is no response-on subpopulation
+        Nf_p = pop_size(T_p, N0, division_off)
+        population_sizes_p.value = [Nf_p]
     end
     # Default: only one parameter is varied
     if p2 == ""                                                         
@@ -70,21 +76,39 @@ function simulate_fluctuation_assays(p; p2="", set_seed=false)
             elseif range_parameter == "switchings_log"
                 switching = 10^r
             end
-            T = t_expected_m(N0*(1-f0_on), division_off-switching-death_off, mutation_off, switching, N0*f0_on, division_on, mutation_on, expected_M)
-            for i = 1:R
-                mc, Nf, f_on = mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures, fitness_m_off=fitness_m_off, death_off=death_off, death_on=death_on, f0_on=f0_on)
-                mutant_counts[:, "$i"] = mc
-                mc_p, Nf_p = mutant_count(T_p, N0, division_off, mutation_off, num_cultures)
-                mutant_counts_p[:, "$(R*(j-1)+i)"] = mc_p
+            if A1 == true
+                tf = t_final(N0, division_off-switching-death_off, Nf)
+                for f = 1:length(f0_on)
+                    t1 = t_first_m(N0, division_off-switching-death_off, mutation_off*(1-0.01*f0_on[f])+mutation_on*0.01*f0_on[f])
+                    for i = 1:R
+                        nm1[i, f] = non_mutants_on(t1, N0*(1-0.01*f0_on[f]), division_off-switching-death_off, switching, Int(round(N0*0.01*f0_on[f])), division_on, death_on)
+                        nmf[i, f] = non_mutants_on(tf-t1, pop_size(t1, N0*(1-0.01*f0_on[f]), division_off-switching-death_off), division_off-switching-death_off, switching, nm1[i, f], division_on, death_on)
+                    end
+                    popsize_nm_on_t1[:, "$f"] = nm1[: ,f]
+                    popsize_nm_on_tf[:, "$f"] = nmf[: ,f]
+                end
+                CSV.write("output_data/"*p*"/popsize_nm_on_t1_$j.csv", popsize_nm_on_t1)
+                CSV.write("output_data/"*p*"/popsize_nm_on_tf_$j.csv", popsize_nm_on_tf)
+            else
+                T = t_expected_m(N0*(1-f0_on), division_off-switching-death_off, mutation_off, switching, N0*f0_on, division_on, mutation_on, expected_M)
+                for i = 1:R
+                    mc, Nf, f_on = mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures, fitness_m_off=fitness_m_off, death_off=death_off, death_on=death_on, f0_on=f0_on)
+                    mutant_counts[:, "$i"] = mc
+                    mc_p, Nf_p = mutant_count(T_p, N0, division_off, mutation_off, num_cultures)
+                    mutant_counts_p[:, "$(R*(j-1)+i)"] = mc_p
+                end
+                mc, Nf, f_on = mc, Nf, f_on = mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures, fitness_m_off=fitness_m_off, death_off=death_off, death_on=death_on, f0_on=f0_on)
+                population_sizes.value = [Nf, f_on]
+                CSV.write("output_data/"*p*"/mutant_counts_$j.csv", mutant_counts)
+                CSV.write("output_data/"*p*"/population_sizes_$j.csv", population_sizes)
             end
-            mc, Nf, f_on = mc, Nf, f_on = mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures, fitness_m_off=fitness_m_off, death_off=death_off, death_on=death_on, f0_on=f0_on)
-            population_sizes.value = [Nf, f_on]
-            CSV.write("output_data/"*p*"/mutant_counts_$j.csv", mutant_counts)
-            CSV.write("output_data/"*p*"/population_sizes_$j.csv", population_sizes)
             j += 1
         end
-        CSV.write("output_data/"*p*"/mutant_counts_p.csv", mutant_counts_p)
-        CSV.write("output_data/"*p*"/population_sizes_p.csv", population_sizes_p)
+        if A1 == true
+        else
+            CSV.write("output_data/"*p*"/mutant_counts_p.csv", mutant_counts_p)
+            CSV.write("output_data/"*p*"/population_sizes_p.csv", population_sizes_p)
+        end
     # A second parameter is varied making the parameter range 2D
     else                                                                   
         parameters2 = DataFrame(CSV.File("input_parameters/"*p2*".csv"))
@@ -132,21 +156,39 @@ function simulate_fluctuation_assays(p; p2="", set_seed=false)
                 elseif range_parameter == "switchings_log"
                     switching = 10^r
                 end
-                T = t_expected_m(N0*(1-f0_on), division_off-switching-death_off, mutation_off, switching, N0*f0_on, division_on, mutation_on, expected_M)
-                for i = 1:R
+                if A1 == true
+                    tf = t_final(N0, division_off-switching-death_off, Nf)
+                    for f = 1:length(f0_on)
+                        t1 = t_first_m(N0, division_off-switching-death_off, mutation_off*(1-0.01*f0_on[f])+mutation_on*0.01*f0_on[f])
+                        for i = 1:R
+                            nm1[i, f] = non_mutants_on(t1, N0*(1-0.01*f0_on[f]), division_off-switching-death_off, switching, Int(round(N0*0.01*f0_on[f])), division_on, death_on)
+                            nmf[i, f] = non_mutants_on(tf-t1, pop_size(t1, N0*(1-0.01*f0_on[f]), division_off-switching-death_off), division_off-switching-death_off, switching, nm1[i, f], division_on, death_on)
+                        end
+                        popsize_nm_on_t1[:, "$f"] = nm1[: ,f]
+                        popsize_nm_on_tf[:, "$f"] = nmf[: ,f]
+                    end
+                    CSV.write("output_data/"*p*p_folder*"$j2/popsize_nm_on_t1_$j.csv", popsize_nm_on_t1)
+                    CSV.write("output_data/"*p*p_folder*"$j2/popsize_nm_on_tf_$j.csv", popsize_nm_on_tf)
+                else
+                    T = t_expected_m(N0*(1-f0_on), division_off-switching-death_off, mutation_off, switching, N0*f0_on, division_on, mutation_on, expected_M)
+                    for i = 1:R
+                        mc, Nf, f_on = mc, Nf, f_on = mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures, fitness_m_off=fitness_m_off, death_off=death_off, death_on=death_on, f0_on=f0_on)
+                        mutant_counts[:, "$i"] = mc
+                        mc_p, Nf_p = mutant_count(T_p, N0, division_off, mutation_off, num_cultures)
+                        mutant_counts_p[:, "$(R*(j-1)+i)"] = mc_p
+                    end
                     mc, Nf, f_on = mc, Nf, f_on = mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures, fitness_m_off=fitness_m_off, death_off=death_off, death_on=death_on, f0_on=f0_on)
-                    mutant_counts[:, "$i"] = mc
-                    mc_p, Nf_p = mutant_count(T_p, N0, division_off, mutation_off, num_cultures)
-                    mutant_counts_p[:, "$(R*(j-1)+i)"] = mc_p
+                    population_sizes.value = [Nf, f_on]
+                    CSV.write("output_data/"*p*p_folder*"$j2/mutant_counts_$j.csv", mutant_counts)
+                    CSV.write("output_data/"*p*p_folder*"$j2/population_sizes_$j.csv", population_sizes)
                 end
-                mc, Nf, f_on = mc, Nf, f_on = mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures, fitness_m_off=fitness_m_off, death_off=death_off, death_on=death_on, f0_on=f0_on)
-                population_sizes.value = [Nf, f_on]
-                CSV.write("output_data/"*p*p_folder*"$j2/mutant_counts_$j.csv", mutant_counts)
-                CSV.write("output_data/"*p*p_folder*"$j2/population_sizes_$j.csv", population_sizes)
                 j += 1
             end
-            CSV.write("output_data/"*p*p_folder*"$j2/mutant_counts_p.csv", mutant_counts_p)
-            CSV.write("output_data/"*p*p_folder*"$j2/population_sizes_p.csv", population_sizes_p)
+            if A1 == true
+            else
+                CSV.write("output_data/"*p*p_folder*"$j2/mutant_counts_p.csv", mutant_counts_p)
+                CSV.write("output_data/"*p*p_folder*"$j2/population_sizes_p.csv", population_sizes_p)
+            end
             j2 += 1
         end
     end
@@ -276,19 +318,19 @@ end
 
 # Parameter regime: mutation-rate increase x switching rate
 # Estimation method: heterogeneous-response model with setting the relative division rate of response-on cells to zero (known fraction of response-on subpopulation)
-simulate_fluctuation_assays("range_mu-inc", p2="range_switching")
+simulate_fluctuation_assays("range_mu-inc", p2="range_switching", set_seed=true)
 infer_mutation_rates("range_mu-inc", "het_zero_div", "range_switching")
 
 # Parameter regime: death rate of response-off x -on cells, for switching rates 0.01 and 0.05
 # Estimation method: heterogeneous-response model with setting the relative division rate of response-on cells to zero (known fraction of response-on subpopulation)
 for i in [1, 5]
-    simulate_fluctuation_assays("range_death-off_switch-$i", p2="range_death-on_switch-$i")
+    simulate_fluctuation_assays("range_death-off_switch-$i", p2="range_death-on_switch-$i", set_seed=true)
     infer_mutation_rates("range_death-off_switch-$i", "het_zero_div", "range_death-on_switch-$i")
 end
 
 # Parameter regime: differential fitness of response-off mutants
 # Estimation method: heterogeneous-response model with setting the relative division rate of response-on cells to zero (known fraction of response-on subpopulation)
-simulate_fluctuation_assays("range_fit-mut")
+simulate_fluctuation_assays("range_fit-mut", set_seed=true)
 infer_mutation_rates("range_fit-mut", "het_zero_div")
 
 # Parameter regime: relative division rate of response-on cells
@@ -296,7 +338,12 @@ infer_mutation_rates("range_fit-mut", "het_zero_div")
 # (i) Heterogeneous-response model with setting the relative division rate of response-on cells to zero/true value or inferring it (known fraction of response-on subpopulation)
 # (ii) Heterogeneous-response model with setting the relative division rate of response-on cells to zero (unknown fraction of response-on subpopulation)
 # (iii) Homogeneous-response model without/with/jointly inferring the differential fitness of mutants
-simulate_fluctuation_assays("range_rel-div-on")
+simulate_fluctuation_assays("range_rel-div-on", set_seed=true)
 for m in ["het_zero_div", "het_set_div", "het_infer_div", "het_zero_div_unknown_fraction", "hom_no_fit", "hom_infer_fit", "hom_joint_fit"]
     infer_mutation_rates("range_rel-div-on", m)
 end
+
+# Parameter regime: switching rate x relative division rate of response-on cells
+# Simulating response-on non-mutants stochastically to test assumption A1
+# Uncomment the line below to reproduce all data in the Supplementary Material
+#simulate_fluctuation_assays("range_switching", p2="range_rel-div-on", set_seed=true, A1=true)
