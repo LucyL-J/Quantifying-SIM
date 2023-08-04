@@ -61,7 +61,7 @@ end
 
 # Branching processes (single/two-type)
 # Single-type branching process
-function number_cells(T, birth, death)
+function number_cells(T, birth, death; N_max=Inf)
     if T <= 0.
         return 0
     else
@@ -71,6 +71,10 @@ function number_cells(T, birth, death)
             m = 1
             t = rand(Exponential(1/((birth+death)*m)))
             while t < T
+                if m >= N_max
+                    m = Int(round(pop_size(T-t, m, birth-death)))
+                    break
+                end
                 r = rand()
                 if r <= birth/(birth+death)
                     m += 1
@@ -179,19 +183,23 @@ end
 # Testing validity of approximations
 # Simulating non-mutant dynamics: response-off subpopulation deterministic and response-on subpopulation stochastic
 # Returns the number of response-on cells at time T
-function non_mutants_on(T, N0_off, pop_growth, switching, N0_on::Int, division_on, death_on)
-    t = 0.
-    n_on = 0
-    for i = 1:N0_on
-        n_on += number_cells(T, division_on, death_on)
+function non_mutants_on(T, N0_off, pop_growth, switching, N0_on::Int, division_on, death_on, N_max)
+    if N0_on >= N_max
+        return pop_size(T, N0_off, pop_growth, switching, N0_on, division_on-death_on)
+    else
+        t = 0.
+        n_on = 0
+        for i = 1:N0_on
+            n_on += number_cells(T, division_on, death_on)
+        end
+        while t < T
+            y = rand(Exponential(1))
+            tau = interval_event(t, N0_off, pop_growth, switching, y)
+            t += tau
+            n_on += number_cells(T-t, division_on, death_on)
+        end
+        return n_on
     end
-    while t < T
-        y = rand(Exponential(1))
-        tau = interval_event(t, N0_off, pop_growth, switching, y)
-        t += tau
-        n_on += number_cells(T-t, division_on, death_on)
-    end
-    return n_on
 end
 # Simulating mutant dynamics; non-mutants deterministic and mutants (with switching) stochastic 
 # Returns the number of mutants which 
