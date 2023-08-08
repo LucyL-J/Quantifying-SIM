@@ -316,7 +316,17 @@ end
 
 # Reproduce all data in the manuscript
 
+# Parameter regime: mutation-rate increase x switching rate
+# Estimation method: heterogeneous-response model with setting the relative division rate of response-on cells to zero (known fraction of response-on subpopulation)
+simulate_fluctuation_assays("range_mu-inc", p2="range_switching", set_seed=true)
+infer_mutation_rates("range_mu-inc", "het_zero_div", "range_switching")
 
+# Parameter regime: death rate of response-off x -on cells, for switching rates 0.01 and 0.05
+# Estimation method: heterogeneous-response model with setting the relative division rate of response-on cells to zero (known fraction of response-on subpopulation)
+for i in [1, 5]
+    simulate_fluctuation_assays("range_death-off_switch-$i", p2="range_death-on_switch-$i", set_seed=true)
+    infer_mutation_rates("range_death-off_switch-$i", "het_zero_div", "range_death-on_switch-$i")
+end
 
 # Parameter regime: differential fitness of response-off mutants
 # Estimation method: heterogeneous-response model with setting the relative division rate of response-on cells to zero (known fraction of response-on subpopulation)
