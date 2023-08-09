@@ -7,7 +7,7 @@ pop_size(t, N0, pop_growth) = N0*exp(pop_growth*t)
 # Initial population size is set to zero
 function pop_size(t, N0_off, pop_growth, switching, N0_on, net_growth_on)
     if net_growth_on == pop_growth
-        return N0_off*switching*t*exp(pop_growth*t)
+        return (N0_off*switching*t + N0_on) * exp(pop_growth*t)
     else
         return N0_off*switching/(pop_growth - net_growth_on) * (exp(pop_growth*t) - exp(net_growth_on*t)) + N0_on*exp(net_growth_on*t)
     end
