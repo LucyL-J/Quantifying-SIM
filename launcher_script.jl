@@ -346,4 +346,4 @@ end
 # Parameter regime: switching rate x relative division rate of response-on cells
 # Simulating response-on non-mutants stochastically to test assumption A1
 # Uncomment the line below to reproduce all data in the Supplementary Material
-#simulate_fluctuation_assays("range_switching", p2="range_rel-div-on", set_seed=true, A1=true)
+simulate_fluctuation_assays("range_switching", p2="range_rel-div-on", set_seed=true, A1=true)
