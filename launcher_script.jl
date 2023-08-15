@@ -202,6 +202,7 @@ function infer_mutation_rates(p, m; p_folder="") # Parameter range p and inferen
     parameters = DataFrame(CSV.File("input_parameters/"*p*".csv"))
     range_parameter = parameters.range_parameter[1]                                         # The parameter that is varied 
     R = parameters.number_fluctuation_assays[1]
+    mc_bound = 1000                                                # Discarding all mutant counts >mc_bound
     try
         mkdir("inferred_parameters/"*p)                            # Make a folder to store the inferred parameters in
     catch e
@@ -240,44 +241,44 @@ function infer_mutation_rates(p, m; p_folder="") # Parameter range p and inferen
         # Inference under the heterogeneous-response model for known fraction of response-on subpopulation and with the relative division rate of response-on cells as an inference parameter 
         if m == "het_infer_div" 
             for i = 1:R
-                mu_offs[i], mu_ons[i], div_ons[i], AICs[i] = estimate_mu_het(mc_p[:, R*(j-1)+i], Nf_p, mc_s[:, i], Nf_s, f_on, rel_div_on="infer")
+                mu_offs[i], mu_ons[i], div_ons[i], AICs[i] = estimate_mu_het(mc_p[:,R*(j-1)+i][mc_p[:,R*(j-1)+i].<mc_bound], Nf_p, mc_s[:,i][mc_s[:,i].<mc_bound], Nf_s, f_on, rel_div_on="infer")
             end
         # Inference under the heterogeneous-response model for known fraction of response-on subpopulation and setting the relative division rate of response-on cells to the true value
         elseif m == "het_set_div"
             for i = 1:R
-                mu_offs[i], mu_ons[i], AICs[i] = estimate_mu_het(mc_p[:, R*(j-1)+i], Nf_p, mc_s[:, i], Nf_s, f_on, rel_div_on=rel_div_on[j])
+                mu_offs[i], mu_ons[i], AICs[i] = estimate_mu_het(mc_p[:,R*(j-1)+i][mc_p[:,R*(j-1)+i].<mc_bound], Nf_p, mc_s[:,i][mc_s[:,i].<mc_bound], Nf_s, f_on, rel_div_on=rel_div_on[j])
             end
         # Inference under the heterogeneous-response model for known fraction of response-on subpopulation and setting the relative division rate of response-on cells to zero
         elseif m == "het_zero_div"
             for i = 1:R
-                mu_offs[i], mu_ons[i], AICs[i] = estimate_mu_het(mc_p[:, R*(j-1)+i], Nf_p, mc_s[:, i], Nf_s, f_on)
+                mu_offs[i], mu_ons[i], AICs[i] = estimate_mu_het(mc_p[:,R*(j-1)+i][mc_p[:,R*(j-1)+i].<mc_bound], Nf_p, mc_s[:,i][mc_s[:,i].<mc_bound], Nf_s, f_on)
             end
         # Inference under the heterogeneous-response model for unknown fraction of response-on subpopulation and with the relative division rate of response-on cells as an inference parameter 
         elseif m == "het_infer_div_unknown_fraction"
             for i = 1:R
-                mu_offs[i], mu_ons[i], div_ons[i], f_ons[i], AICs[i] = estimate_mu_het(mc_p[:, R*(j-1)+i], Nf_p, mc_s[:, i], Nf_s, rel_div_on="infer")
+                mu_offs[i], mu_ons[i], div_ons[i], f_ons[i], AICs[i] = estimate_mu_het(mc_p[:,R*(j-1)+i][mc_p[:,R*(j-1)+i].<mc_bound], Nf_p, mc_s[:,i][mc_s[:,i].<mc_bound], Nf_s, rel_div_on="infer")
             end
         # Inference under the heterogeneous-response model for unknown fraction of response-on subpopulation and setting the relative division rate of response-on cells to zero
         elseif m == "het_zero_div_unknown_fraction"
             for i = 1:R
-                mu_offs[i], mu_ons[i], f_ons[i], AICs[i] = estimate_mu_het(mc_p[:, R*(j-1)+i], Nf_p, mc_s[:, i], Nf_s)
+                mu_offs[i], mu_ons[i], f_ons[i], AICs[i] = estimate_mu_het(mc_p[:,R*(j-1)+i][mc_p[:,R*(j-1)+i].<mc_bound], Nf_p, mc_s[:,i][mc_s[:,i].<mc_bound], Nf_s)
             end
         # Inference under homogeneous-response model with the differential fitness of mutants as an inference parameter
         elseif m == "hom_infer_fit"
             for i = 1:R
-                mu_p[i], fitm_p[i], mu_s[i], fitm_s[i], AICs[i] = estimate_mu_hom(mc_p[:, R*(j-1)+i], Nf_p, mc_s[:, i], Nf_s, fit_m="infer")
+                mu_p[i], fitm_p[i], mu_s[i], fitm_s[i], AICs[i] = estimate_mu_hom(mc_p[:,R*(j-1)+i][mc_p[:,R*(j-1)+i].<mc_bound], Nf_p, mc_s[:,i][mc_s[:,i].<mc_bound], Nf_s, fit_m="infer")
             end
         # Inference under homogeneous-response model with the differential fitness of mutants as a joint inference parameter
         elseif m == "hom_joint_fit"
             for i = 1:R
-                mu_p[i], mu_s[i], fitm, AICs[i] = estimate_mu_hom(mc_p[:, R*(j-1)+i], Nf_p, mc_s[:, i], Nf_s, fit_m="joint")
+                mu_p[i], mu_s[i], fitm, AICs[i] = estimate_mu_hom(mc_p[:,R*(j-1)+i][mc_p[:,R*(j-1)+i].<mc_bound], Nf_p, mc_s[:,i][mc_s[:,i].<mc_bound], Nf_s, fit_m="joint")
                 fitm_s[i] = fitm
                 fitm_p[i] = fitm
             end
         # Inference under homogeneous-response model without the differential fitness of mutants as an inference parameter (set to one)
         elseif m == "hom_no_fit"
             for i = 1:R
-                mu_p[i], mu_s[i], AICs[i] = estimate_mu_hom(mc_p[:, R*(j-1)+i], Nf_p, mc_s[:, i], Nf_s)
+                mu_p[i], mu_s[i], AICs[i] = estimate_mu_hom(mc_p[:,R*(j-1)+i][mc_p[:,R*(j-1)+i].<mc_bound], Nf_p, mc_s[:,i][mc_s[:,i].<mc_bound], Nf_s)
             end
         end
         inferred_para[:, "mutation_rate_off"] = mu_offs

@@ -5,16 +5,15 @@ using Distributions, SpecialFunctions, Optim, StatsBase
 
 # Muntant count distribution for a homogeneous population with optional differential fitness of mutants
 function P_mutant_count(K::Int, mu_per_gen, Nf; fit_m=1.)    # Mutations per generation = mutation rate [1/h] / growth rate [1/h]
-    K_bound = minimum([K, 1000])                             # Introducing an arbritraty cut-off at 1000 colonies; any mutant count >1000 is considered as =1000 instead
-    p = zeros(Float64, K_bound+1)
+    p = zeros(Float64, K+1)
     if fit_m == 0.
-        for k = 0:K_bound
+        for k = 0:K
             p[k+1] = pdf(Poisson(Nf*mu_per_gen), k)          # When the division rate is zero, the mutant count distribution is given by a Poisson distribution
         end
     else
-        q = Q(K_bound, mu_per_gen, fit_m, Nf)
+        q = Q(K, mu_per_gen, fit_m, Nf)
         p[1] = exp(q[1])
-        for k = 1:K_bound
+        for k = 1:K
             S = 0.
             for i = 0:k-1
                 S += (k-i) * q[k-i+1] * p[i+1]
@@ -46,9 +45,8 @@ end
 function P_mutant_count(K::Int, mu_off_per_div, Nf, mu_on_per_div, f_on; rel_div_on=0.)
     p_off = P_mutant_count(K, mu_off_per_div/(1-f_on*(1-rel_div_on)), (1-f_on)*Nf)                                   
     p_on = P_mutant_count(K, mu_on_per_div/(1-f_on*(1-rel_div_on)), f_on*Nf, fit_m=rel_div_on/(1-f_on*(1-rel_div_on))) 
-    K_bound = length(p_off)-1
-    p = zeros(Float64, K_bound+1)
-    for k = 0:K_bound
+    p = zeros(Float64, length(p_off))
+    for k = 0:length(p_off)-1
         pk = 0
         for j = 0:k
             pk += p_off[j+1] * p_on[k-j+1] # pdf of the total mutant count (response-off + -on)
@@ -191,7 +189,6 @@ function log_likelihood(mc::Vector{Int}, mu_per_gen, fit_m, Nf)
         return -Inf
     else
         p = P_mutant_count(maximum(mc), mu_per_gen, Nf, fit_m=fit_m)
-        mc[mc.>1000] .= 1000                                          # Any mutant count >1000 is considered as =1000 instead
         return sum(counts(mc, 0:maximum(mc)) .* log.(p))
     end
 end
@@ -202,8 +199,6 @@ function log_likelihood(mc_p::Vector{Int}, mu_p_per_gen, Nf_p, mc_s::Vector{Int}
     else
         p_p = P_mutant_count(maximum(mc_p), mu_p_per_gen, Nf_p, fit_m=fit_m)                                      # Mutant count distribution without stress
         p_s = P_mutant_count(maximum(mc_s), mu_s_per_gen, Nf_s, fit_m=fit_m) 
-        mc_p[mc_p.>1000] .= 1000                                                                                  # A mutant count >1000 is considered as =1000 instead
-        mc_s[mc_s.>1000] .= 1000
         return sum(counts(mc_p, 0:maximum(mc_p)) .* log.(p_p)) + sum(counts(mc_s, 0:maximum(mc_s)) .* log.(p_s))  # The two observations are independent and their probabilities can be multiplied
     end
 end
@@ -213,7 +208,6 @@ function log_likelihood(mc::Vector{Int}, mu_off_per_div, Nf, mu_on_per_div, rel_
         return -Inf
     else
         p = P_mutant_count(maximum(mc), mu_off_per_div, Nf, mu_on_per_div, f_on, rel_div_on=rel_div_on)
-        mc[mc.>1000] .= 1000                                                                             # Any mutant count >1000 is considered as =1000 instead
         return sum(counts(mc, 0:maximum(mc)) .* log.(p))
     end
 end
@@ -226,8 +220,6 @@ function log_likelihood(mc_p::Vector{Int}, mu_off_per_div, Nf_p, mc_s::Vector{In
     else
         p_p = P_mutant_count(maximum(mc_p), mu_off_per_div, Nf_p)                                                           # Mutant count distribution: permissive
         p_s = P_mutant_count(maximum(mc_s), mu_off_per_div, Nf_s, mu_on_per_div, f_on, rel_div_on=rel_div_on)               # Mutant count distribution: stress
-        mc_p[mc_p.>1000] .= 1000                                                                                            # Any mutant count >1000 is considered as =1000 instead
-        mc_s[mc_s.>1000] .= 1000
         return sum(counts(mc_p, 0:maximum(mc_p)) .* log.(p_p)) + sum(counts(mc_s, 0:maximum(mc_s)) .* log.(p_s))            # The two observations are independent and their probabilities can be multiplied
     end
 end
