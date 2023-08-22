@@ -56,6 +56,97 @@ function P_mutant_count(K::Int, mu_off_per_div, Nf, mu_on_per_div, f_on; rel_div
     return p
 end
 
+# Mutation rate estimation and model selection between heterogeneous/homogeneous response
+# Input parameters
+# mc_p: Mutant counts for permissive condition
+# Nf_p: Final population size for permissive condition
+# mc_s: Mutant counts for stressful condition
+# Nf_s: Final population size for stressful condition
+# Optional
+# fitm_p: Mutant fitness under permissive condition
+# fitm_s: Mutant fitness under stressful condition
+# To constrain the mutant fitness to be equal under permissive and stressful conditions, set joint=true
+# Output: selected model and inferred parameters
+function estimate_mu(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fitm_p=false, fitm_s=false, joint=false)
+    mu_off, mu_on, f_on, AIC_het = estimate_mu_het(mc_p, Nf_p, mc_s, Nf_s)
+    if joint == true
+        mu_p_set, mu_s_set, AIC_set = estimate_mu_hom(mc_p, Nf_p, mc_s, Nf_s)
+        mu_p_joint, mu_s_joint, rho_joint, AIC_joint = estimate_mu_hom(mc_p, Nf_p, mc_s, Nf_s, fit_m="joint")
+        AIC_infer = Inf
+    elseif fitm_p == false && fitm_s == false
+        mu_p_set, mu_s_set, AIC_set = estimate_mu_hom(mc_p, Nf_p, mc_s, Nf_s)
+        mu_p_joint, mu_s_joint, rho_joint, AIC_joint = estimate_mu_hom(mc_p, Nf_p, mc_s, Nf_s, fit_m="joint")
+        mu_p_infer, rho_p_infer, mu_s_infer, rho_s_infer, AIC_infer = estimate_mu_hom(mc_p, Nf_p, mc_s, Nf_s, fit_m="infer")
+    elseif fitm_s == false 
+        AIC_set = Inf
+        mu_p_joint, AIC_p = estimate_mu_hom(mc_p, Nf_p, fit_m=fitm_p)
+        mu_p_infer = mu_p_joint
+        mu_s_joint, AIC_s_joint = estimate_mu_hom(mc_s, Nf_s, fit_m=fitm_p)
+        AIC_joint = AIC_p + AIC_s_joint
+        mu_s_infer, rho_s_infer, AIC_s_infer = estimate_mu_hom(mc_s, Nf_s, fit_m="infer")
+        AIC_infer = AIC_p + AIC_s_infer
+        rho_p_infer = fitm_p
+    elseif fitm_p == false 
+        AIC_set = Inf
+        mu_s_joint, AIC_s = estimate_mu_hom(mc_s, Nf_s, fit_m=fitm_s)
+        mu_s_infer = mu_s_joint
+        mu_p_joint, AIC_p_joint = estimate_mu_hom(mc_p, Nf_p, fit_m=fitm_s)
+        AIC_joint = AIC_p_joint + AIC_s
+        mu_p_infer, rho_p, AIC_p_infer = estimate_mu_hom(mc_p, Nf_p, fit_m="infer")
+        AIC_infer = AIC_p_infer + AIC_s
+        rho_s_infer = fitm_s  
+    else
+        mu_p_set, AIC_p_set = estimate_mu_hom(mc_p, Nf_p, fit_m=fitm_p)
+        mu_s_set, AIC_s_set = estimate_mu_hom(mc_s, Nf_s, fit_m=fitm_s)
+        AIC_set = AIC_p_set + AIC_s_set
+        AIC_joint = Inf
+        AIC_infer = Inf
+    end
+    AIC_hom = minimum([AIC_set, AIC_joint, AIC_infer])
+    if AIC_het - AIC_hom < -2
+        println("Heterogeneous-response model is selected")
+        println("Mutation rate response-off = ", mu_off)
+        println("Mutation rate response-on = ", mu_on)
+        println("Fraction of response-on subpopulation = ", f_on)
+        println("Relative mutation-rate increase = ", mu_on/mu_off)
+        println("Increase in population mean mutation rate = ", (mu_off*(1-f_on) + mu_on*f_on)/mu_off)
+    else
+        if AIC_het - AIC_hom > 2
+            println("Homogeneous-response model is selected")
+        else
+            println("No preferred model")
+            println("Heterogeneous-response model inferred parameters:")
+            println("Mutation rate response-off = ", mu_off)
+            println("Mutation rate response-on = ", mu_on)
+            println("Fraction of response-on subpopulation = ", f_on)
+            println("Relative mutation-rate increase = ", mu_on/mu_off)
+            println("Increase in population mean mutation rate = ", (mu_off*(1-f_on) + mu_on*f_on)/mu_off)
+            println("")
+            println("Homogeneous-response model inferred parameters:")
+        end
+        m = argmin([AIC_set, AIC_joint, AIC_infer])
+        if m == 1
+            println("(Mutant fitness set to 1 or the input value)")
+            println("Mutation rate permissive condition = ", mu_p_set)
+            println("Mutation rate stressful condition = ", mu_s_set)
+            println("Increase in population mean mutation rate = ", mu_s_set/mu_p_set)
+        elseif m == 2
+            println("(Mutant fitness inferred, constrained to be equal under permissive and stressful conditions)")
+            println("Mutation rate permissive condition = ", mu_p_joint)
+            println("Mutation rate stressful condition = ", mu_s_joint)
+            println("Mutant fitness = ", rho_joint)
+            println("Increase in population mean mutation rate = ", mu_s_joint/mu_p_joint)
+        elseif m == 3
+            println("(Mutant fitness inferred)")
+            println("Mutation rate permissive condition = ", mu_p_infer)
+            println("Mutation rate stressful condition = ", mu_s_infer)
+            println("Mutant fitness permissive condition = ", rho_p_infer)
+            println("Mutant fitness stressful condition = ", rho_s_infer)
+            println("Increase in population mean mutation rate = ", mu_s_infer/mu_p_infer)
+        end
+    end
+end
+
 # Mutation rate estimation algorithms (if the optimisation fails, AIC=Inf is returned)
 # Joint inference permissive+stressful condition
 # Estimating mutation rates under permissive/stressful conditons using the homogeneous-response model with optional differential fitness of mutants (jointly) inferred
