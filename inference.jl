@@ -155,7 +155,7 @@ function estimate_mu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fit_m
         m_p, rho_p, AIC_p = eatimate_init_hom(mc_p, fit_m="infer")                                       # Used as initial parameter in optimisation
         m_s, rho_s, AIC_s = eatimate_init_hom(mc_s, fit_m="infer")                                       # Used as initial parameter in optimisation
         log_likelihood_para_3(para) = -log_likelihood(mc_p, para[1], mc_s, para[2], para[3])             # 3 inference parameters
-        res = Optim.optimize(log_likelihood_para_3, [m_p, m_s, rho_p])                                   # Numbers of mutations permissive/stress, differential fitness
+        res = Optim.optimize(log_likelihood_para_3, [m_p, m_s, rho_s])                                   # Numbers of mutations permissive/stress, differential fitness
         if Optim.converged(res) == true
             p = Optim.minimizer(res)
             return[p[1]/Nf_p, p[2]/Nf_s, p[3], 6 + 2*Optim.minimum(res)]                                 # Returns mutation rates permissive/stress, differential fitness plus AIC
@@ -224,7 +224,7 @@ end
 
 
 # The following inference functions are used to determine the initial parameters for the joint inference
-function eatimate_init_hom(mc::Vector{Int}f; fit_m=1.)                         # Estimating the number of mutations for a homogeneous population with optional differential fitness of mutants
+function eatimate_init_hom(mc::Vector{Int}; fit_m=1.)                          # Estimating the number of mutations for a homogeneous population with optional differential fitness of mutants
     if fit_m == "infer"                                                        # Differential fitness of mutants is inferred 
         log_likelihood_para_2(para) = -log_likelihood(mc, para[1], para[2])
         res = Optim.optimize(log_likelihood_para_2, [initial_m(mc, 100), 1.])  # 2 inference parameters
