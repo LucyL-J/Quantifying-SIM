@@ -263,6 +263,11 @@ function infer_mutation_rates(p, m; p_folder="") # Parameter range p and inferen
             for i = 1:R
                 mu_offs[i], mu_ons[i], f_ons[i], AICs[i] = estimate_mu_het(mc_p[:,R*(j-1)+i][mc_p[:,R*(j-1)+i].<mc_bound], Nf_p, mc_s[:,i][mc_s[:,i].<mc_bound], Nf_s)
             end
+        # Inference under the heterogeneous-response model for unknown fraction of response-on subpopulation and setting the relative division rate of response-on cells to the true value
+        elseif m == "het_set_div_unknown_fraction"
+            for i = 1:R
+                mu_offs[i], mu_ons[i], f_ons[i], AICs[i] = estimate_mu_het(mc_p[:,R*(j-1)+i][mc_p[:,R*(j-1)+i].<mc_bound], Nf_p, mc_s[:,i][mc_s[:,i].<mc_bound], Nf_s, rel_div_on=rel_div_on[j])
+            end
         # Inference under homogeneous-response model with the differential fitness of mutants as an inference parameter
         elseif m == "hom_infer_fit"
             for i = 1:R
