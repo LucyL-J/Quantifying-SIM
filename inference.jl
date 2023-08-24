@@ -173,14 +173,15 @@ end
 # Estimating mutation rates of response-off/-on cells using the heterogeneous-response model with optional relative division rate of response-on cells for unknown fraction of response-on subpopulation
 function estimate_mu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s) 
     m = estimate_init_hom(mc_p)[1]*Nf_s/Nf_p                                                                          # Used as initial parameter in optimisation
-    mu_inc = estimate_init_hom(mc_s, fit_m="infer")[1] / m                                                                              # Used as initial parameters in optimisation
-    mu_het = estimate_init_het(mc_s, m)                                                                               # Used as initial parameters in optimisation
-    f_on = 1 - mu_inc/(mu_het+1)                                                                                     # Used as initial parameters in optimisation
+    mu_inc = estimate_init_hom(mc_s, fit_m="infer")[1] / m                                                                           # Used as initial parameters in optimisation                                                                                           
+    mu_het = estimate_init_het(mc_s, m)                                                                               # Used as initial parameter in optimisation
+    f_on = maximum([1 - mu_inc/(mu_het+1), 0.])                                                                       # Used as initial parameter in optimisation
+    switching = log((1-f_on)/f_on) / log(Nf_s)
     log_likelihood_para_3(para) = -log_likelihood(mc_p, mc_s, Nf_p/Nf_s, para[1], para[2], 0., para[3])               # 3 inference parameters
-    res = Optim.optimize(log_likelihood_para_3, [m, mu_het, f_on])                                                    # Number of mutations stress, mutation-rate heterogeneity, fraction response-on subpopulation          
+    res = Optim.optimize(log_likelihood_para_3, [m, mu_het, switching])                                               # Number of mutations stress, mutation-rate heterogeneity, relative switching rate          
     if Optim.converged(res) == true
         p = Optim.minimizer(res)
-        return [p[1]/Nf_s, p[2]*p[1]*(1-p[3])/(p[3]*Nf_s), p[3], 6 + 2*Optim.minimum(res)]                            # Returns mutation rate response-off/-on cells, fraction of response-on subpopulation, AIC
+        return [p[1]/Nf_s, p[2]*p[1]*(Nf_s^(p[3]-1)), 1/(Nf_s^p[3]), 6 + 2*Optim.minimum(res)]                            # Returns mutation rate response-off/-on cells, fraction of response-on subpopulation, AIC
     else
         return [0., 0., 0., Inf]                                                                                                        
     end
