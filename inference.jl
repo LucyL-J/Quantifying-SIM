@@ -105,9 +105,10 @@ function estimate_mu(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fitm_p=fa
     AIC_hom = minimum([AIC_set, AIC_joint, AIC_infer])
     if AIC_het - AIC_hom < -2
         println("Heterogeneous-response model with non-dividing response-on cells is selected")
-        println("Mutation rate response-off = ", mu_off)
-        println("Mutation rate response-on = ", mu_on)
-        println("Relative switching rate = ", f_on)
+        println("Mutation rate response-off cells = ", mu_off)
+        println("Mutation rate response-on cells = ", mu_on)
+        println("Fraction response-on subpopulation = ", f_on)
+        println("(Beta) Relative switching rate = ", (log(1-f_on)-log(f_on))/log(Nf_s))
         println("Relative mutation-rate increase = ", mu_on/mu_off)
         println("Increase in population mean mutation rate = ", (mu_off*(1-f_on) + mu_on*f_on)/mu_off)
     else
@@ -115,10 +116,12 @@ function estimate_mu(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fitm_p=fa
             println("Homogeneous-response model is selected")
         else
             println("No preferred model")
+            println("")
             println("Heterogeneous-response model inferred parameters:")
-            println("Mutation rate response-off = ", mu_off)
-            println("Mutation rate response-on = ", mu_on)
-            println("Relative switching rate = ", f_on)
+            println("Mutation rate response-off cells = ", mu_off)
+            println("Mutation rate response-on cells = ", mu_on)
+            println("Fraction response-on subpopulation = ", f_on)
+            println("(Beta) Relative switching rate = ", (log(1-f_on)-log(f_on))/log(Nf_s))
             println("Relative mutation-rate increase = ", mu_on/mu_off)
             println("Increase in population mean mutation rate = ", (mu_off*(1-f_on) + mu_on*f_on)/mu_off)
             println("")
@@ -173,8 +176,8 @@ end
 # Estimating mutation rates of response-off/-on cells using the heterogeneous-response model with optional relative division rate of response-on cells for unknown fraction of response-on subpopulation
 function estimate_mu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s) 
     m = estimate_init_hom(mc_p)[1]*Nf_s/Nf_p                                                                          # Used as initial parameter in optimisation
-    mu_inc = estimate_init_hom(mc_s, fit_m="infer")[1] / m                                                                           # Used as initial parameters in optimisation                                                                                           
-    mu_het = estimate_init_het(mc_s, m)                                                                               # Used as initial parameter in optimisation
+    mu_inc = estimate_init_hom(mc_s, fit_m="infer")[1] / m                                                            # Used as initial parameters in optimisation                                                                                           
+    mu_het = maximum([initial_mu_het(mc_s, m, 100), 0.])                                                                             # Used as initial parameter in optimisation
     f_on = maximum([1 - mu_inc/(mu_het+1), 0.])                                                                       # Used as initial parameter in optimisation
     switching = log((1-f_on)/f_on) / log(Nf_s)
     log_likelihood_para_3(para) = -log_likelihood(mc_p, mc_s, Nf_p/Nf_s, para[1], para[2], 0., para[3])               # 3 inference parameters
@@ -234,15 +237,6 @@ function estimate_init_hom(mc::Vector{Int}; fit_m=1.)                          #
         end                                                                              
     end
 end
-function estimate_init_het(mc::Vector{Int}, m)                                                                 # Estimation of the mutation-rate heterogeneity for given number of mutations (stress) and unknown fraction of response-on subpopulation
-    log_likelihood_para_1(para) = -log_likelihood(mc, m, para, 0., 0.)                                         # 1 inference parameters: mutation-rate heterogeneity 
-    res = Optim.optimize(log_likelihood_para_1, 0., maximum(mc)*100)                                               
-    if Optim.converged(res) == true
-        return Optim.minimizer(res)                                                                            
-    else
-        return [1., 0.5]
-    end
-end
 function estimate_init_het(mc::Vector{Int}, m, f_on; infer_div_on=false)                           # Estimation of the mutation-rate heterogeneity for given number of mutations (stress) and known fraction of response-on subpopulation
     if infer_div_on == false                                                                       # Relative division rate of response-on cells is not inferred and set to 0 instead
         log_likelihood_para_1(para) = -log_likelihood(mc, m, para, 0., f_on)      
@@ -254,7 +248,7 @@ function estimate_init_het(mc::Vector{Int}, m, f_on; infer_div_on=false)        
         end
     else                                                                                                  # Relative division rate of response-on cells is inferred 
         log_likelihood_para_2(para) = -log_likelihood(mc, m, para[1], para[2], f_on)                      # 2 inference parameters: mutation-rate heterogeneity, relative division rate of response-on cells
-        res = Optim.optimize(log_likelihood_para_2, [initial_mu_het(mc, m, f_on, 100), 0.5])              # Initial value for relative division rate of response-on cells is set to 0.5
+        res = Optim.optimize(log_likelihood_para_2, [initial_mu_het(mc, m, 100), 0.5])                    # Initial value for relative division rate of response-on cells is set to 0.5
         if Optim.converged(res) == true
             return Optim.minimizer(res)                                                                   
         else
@@ -315,31 +309,31 @@ function empirical_pgf(z, x) # Empirical probability generating function calcula
     g /= length(x)
     return g
 end
-function initial_m(z, mc::Vector{Int})             # Estimate number of mutations for a homogeneous population and given z        
+function initial_m(z, mc::Vector{Int})                     # Estimate number of mutations for a homogeneous population and given z        
     if z == 0.
         return log(empirical_pgf(z, mc)) 
     else
         return z/((1-z)*log(1-z)) * log(empirical_pgf(z, mc))
     end
 end
-function initial_m(mc::Vector{Int}, z_values::Int) # Estimate number of mutations for a homogeneous population by averaging over a number of z values
+function initial_m(mc::Vector{Int}, z_values::Int)         # Estimate number of mutations for a homogeneous population by averaging over a number of z values
     m = 0.
     for i = 0:z_values-1
         m += initial_m(i/z_values, mc)
     end
     return maximum([m/z_values, 0.])
 end
-function initial_mu_het(z, mc::Vector{Int}, m, f_on)             # Estimate the mutation-rate heterogeneity under the heterogeneous-response model for given z   
+function initial_mu_het(z, mc::Vector{Int}, m)             # Estimate the mutation-rate heterogeneity under the heterogeneous-response model for given z   
     if z == 0.
-        return (log(empirical_pgf(z, mc)) - m*(1-f_on)) / f_on
+        return -log(empirical_pgf(z, mc))/m - 1
     else
-        return (log(empirical_pgf(z, mc))/(z-1) + m*(1-f_on) * log(1-z)/z) / f_on
+        return -log(empirical_pgf(z, mc))/(m*(1-z)) + log(1-z)/z
     end
 end
-function initial_mu_het(mc::Vector{Int}, m, f_on, z_values::Int) # Estimate the mutation-rate heterogeneity under the heterogeneous-response model by averaging over a number of z values 
+function initial_mu_het(mc::Vector{Int}, m, z_values::Int) # Estimate the mutation-rate heterogeneity under the heterogeneous-response model by averaging over a number of z values 
     mu_het = 0.
     for i = 0:z_values-1
-        mu_het += initial_mu_het(i/z_values, mc, m, f_on)
+        mu_het += initial_mu_het(i/z_values, mc, m)
     end
     return maximum([mu_het/z_values, 0.])
 end

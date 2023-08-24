@@ -55,7 +55,7 @@ Optionally, the input parameter `rel_div_on` can be set to a value measured in a
 The output parameters are 
 * Mutation rate response-off
 * Mutation rate response-on
-* Optional: Inferred relative fitness response-on compared to response-off
+* Optional: Inferred relative fitness of response-on compared to response-off cells
 * AIC
 
 From the inferred mutation rates, the relative mutation-rate increase associated with the induction of the stress response can be calculated.\
