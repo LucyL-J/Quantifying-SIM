@@ -79,25 +79,33 @@ function estimate_mu(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fitm_p=fa
         mu_p_infer, rho_p_infer, mu_s_infer, rho_s_infer, AIC_infer = estimate_mu_hom(mc_p, Nf_p, mc_s, Nf_s, fit_m="infer")
     elseif fitm_s == false 
         AIC_set = Inf
-        mu_p_joint, AIC_p = estimate_mu_hom(mc_p, Nf_p, fit_m=fitm_p)
+        m_p_joint, AIC_p = estimate_init_hom(mc_p, fit_m=fitm_p)
+        mu_p_joint = m_p_joint/Nf_p
         mu_p_infer = mu_p_joint
-        mu_s_joint, AIC_s_joint = estimate_mu_hom(mc_s, Nf_s, fit_m=fitm_p)
+        m_s_joint, AIC_s_joint = estimate_init_hom(mc_s, fit_m=fitm_p)
+        mu_s_joint = m_s_joint/Nf_s
         AIC_joint = AIC_p + AIC_s_joint
-        mu_s_infer, rho_s_infer, AIC_s_infer = estimate_mu_hom(mc_s, Nf_s, fit_m="infer")
+        m_s_infer, rho_s_infer, AIC_s_infer = estimate_init_hom(mc_s, fit_m="infer")
+        mu_s_infer = m_s_infer/Nf_s
         AIC_infer = AIC_p + AIC_s_infer
         rho_p_infer = fitm_p
     elseif fitm_p == false 
         AIC_set = Inf
-        mu_s_joint, AIC_s = estimate_mu_hom(mc_s, Nf_s, fit_m=fitm_s)
+        m_s_joint, AIC_s = estimate_init_hom(mc_s, fit_m=fitm_s)
+        mu_s_joint = m_s_joint/Nf_s
         mu_s_infer = mu_s_joint
-        mu_p_joint, AIC_p_joint = estimate_mu_hom(mc_p, Nf_p, fit_m=fitm_s)
+        m_p_joint, AIC_p_joint = estimate_init_hom(mc_p, fit_m=fitm_s)
+        mu_p_joint = m_p_joint/Nf_p
         AIC_joint = AIC_p_joint + AIC_s
-        mu_p_infer, rho_p, AIC_p_infer = estimate_mu_hom(mc_p, Nf_p, fit_m="infer")
+        m_p_infer, rho_p, AIC_p_infer = estimate_init_hom(mc_p, fit_m="infer")
+        mu_p_infer = m_p_infer/Nf_p
         AIC_infer = AIC_p_infer + AIC_s
         rho_s_infer = fitm_s  
     else
-        mu_p_set, AIC_p_set = estimate_mu_hom(mc_p, Nf_p, fit_m=fitm_p)
-        mu_s_set, AIC_s_set = estimate_mu_hom(mc_s, Nf_s, fit_m=fitm_s)
+        m_p_set, AIC_p_set = estimate_init_hom(mc_p, fit_m=fitm_p)
+        mu_p_set = m_p_set/Nf_p
+        m_s_set, AIC_s_set = estimate_init_hom(mc_s, fit_m=fitm_s)
+        mu_s_set = m_s_set/Nf_s
         AIC_set = AIC_p_set + AIC_s_set
         AIC_joint = Inf
         AIC_infer = Inf
@@ -176,8 +184,8 @@ end
 # Estimating mutation rates of response-off/-on cells using the heterogeneous-response model with optional relative division rate of response-on cells for unknown fraction of response-on subpopulation
 function estimate_mu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s) 
     m = estimate_init_hom(mc_p)[1]*Nf_s/Nf_p                                                                          # Used as initial parameter in optimisation
-    mu_inc = estimate_init_hom(mc_s, fit_m="infer")[1] / m                                                            # Used as initial parameters in optimisation                                                                                           
-    mu_het = maximum([initial_mu_het(mc_s, m, 100), 0.])                                                                             # Used as initial parameter in optimisation
+    mu_inc = estimate_init_hom(mc_s)[1] / m                                                                           # Used as initial parameters in optimisation                                                                                           
+    mu_het = maximum([initial_mu_het(mc_s, m, 100), 0.])                                                              # Used as initial parameter in optimisation
     f_on = maximum([1 - mu_inc/(mu_het+1), 0.])                                                                       # Used as initial parameter in optimisation
     switching = log((1-f_on)/f_on) / log(Nf_s)
     log_likelihood_para_3(para) = -log_likelihood(mc_p, mc_s, Nf_p/Nf_s, para[1], para[2], 0., para[3])               # 3 inference parameters
@@ -186,6 +194,7 @@ function estimate_mu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s)
         p = Optim.minimizer(res)
         return [p[1]/Nf_s, p[2]*p[1]*(Nf_s^(p[3]-1)), 1/(Nf_s^p[3]), 6 + 2*Optim.minimum(res)]                            # Returns mutation rate response-off/-on cells, fraction of response-on subpopulation, AIC
     else
+        println(mu_het, f_on, switching)
         return [0., 0., 0., Inf]                                                                                                        
     end
 end
