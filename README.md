@@ -1,6 +1,6 @@
 # Quantifying-SIM
 Documentation of the simulations and computational analysis of the manuscript \
-*Quantifying stress-induced mutagenesis using fluctuation assays* 
+*Quantifying mutation rates under heterogeneous stress responses* 
 
 The simulations and the inference algorithms are written in the programming language [julia](https://julialang.org). \
 To replicate the data presented in the manuscript and the additional data in the supplementary material, clone this repository, install [julia verison 1.6](https://julialang.org/downloads/#long_term_support_release), start it and execute
@@ -59,4 +59,25 @@ The output parameters are
 * AIC
 
 From the inferred mutation rates, the relative mutation-rate increase associated with the induction of the stress response can be calculated.\
+If the inference fails, AIC=`Inf` is returned.
+
+The function 
+```
+estimate_mu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fit_m=1.)
+```
+estimates the mutation rates under the homogeneous-response model. \
+The input parameters are
+* `mc_p`: Mutant counts for permissive condition (has to be a vector with integers)
+* `Nf_p`: Final population size for permissive condition
+* `mc_s`: Mutant counts for stressful condition (has to be a vector with integers)
+* `Nf_s`: Final population size for stressful condition
+
+Optionally, the input parameter `fit_m` can be set to a value measured in a separate experiment, as a joint inference parameter via `rel_div_on="joint"` or as two inference parameters (permissive/stressful condition) via `rel_div_on="infer"`. \
+The output parameters are 
+* Mutation rate permissive condition 
+* Mutation rate stressful condition
+* Optional: Inferred relative fitness of mutants compared to non-mutants (under permissive/stressful condition)
+* AIC
+
+From the inferred mutation rates, the increase in population mean mutation rate due to stress can be calculated.\
 If the inference fails, AIC=`Inf` is returned.
