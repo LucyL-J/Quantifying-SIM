@@ -1,5 +1,6 @@
 import Pkg
 Pkg.activate("packages")
+Pkg.instantiate()
 include("population_dynamics.jl")
 include("inference.jl")
 try

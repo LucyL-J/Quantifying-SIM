@@ -1,9 +1,12 @@
 # Quantifying-SIM
 Documentation of the simulations and computational analysis of the manuscript \
-*Quantifying mutation rates under heterogeneous stress responses* 
+*Estimating mutation rates under heterogeneous stress responses* \
+Lucy Lansch-Justen, Meriem El Karoui, Helen K. Alexander.
 
-The simulations and the inference algorithms are written in the programming language [julia](https://julialang.org). \
-To replicate the data presented in the manuscript and the additional data in the supplementary material, clone this repository, install [julia verison 1.6](https://julialang.org/downloads/#long_term_support_release), start it and execute
+The simulations and the inference algorithms are written in the programming language [julia verison 1.6](https://julialang.org/downloads/#long_term_support_release). 
+
+## Reproducing the data in the manuscript
+To replicate the data presented in the manuscript, clone this repository, start julia and execute
 ```
 cd("...")
 include("launcher_script.jl")
@@ -12,14 +15,19 @@ data_supplementary_material()
 ```
 with the dots replaced by the path to the repository.
 
+## Analysing experimental mutant count data
+
 To analyise mutant count data from a pair of fluctuation assays under permissive/stressful conditions, use the script `inference.jl`. To set up, start julia and execute 
 ```
 cd("...")
 import Pkg
 Pkg.activate("packages")
+Pkg.instantiate()
 include("inference.jl")
 ```
 with the dots replaced again by the path to the repository.
+
+### Case 1: It is not known whether the stress response is heterogeneous and/or there is no estimate of the fraction of cells with elevated expression level of the response available.
 
 The function 
 ```
@@ -38,6 +46,41 @@ Optional input parameters are
 * `joint`: To constrain the mutant fitness to be equal under permissive and stressful conditions, set `joint=true`
 
 As output, the function prints whether/which model is selected (difference in AIC > 2) and the respective inferred parameters.
+
+**Example** 
+
+Under permissive conditions, the mutant counts mc_p = $[0, 9, 3, 11, 0, 0, 1, 0, 3, 5, 1, 1, 2, 0, 0, 1, 89, 0, 1, 1, 9, 0, 0, 0, 1, 1, 0, 0, 31, 3, 0, 10, 13, 0, 3, 3, 165, 2, 0, 1, 0, 0, 0, 2, 55, 11, 3, 5, 1, 34]$ and a final population size of $10^8$ were observed. \
+Under stressful conditions, the mutant counts mc_s = $[2, 4, 0, 0, 0, 0, 0, 1, 2, 1, 0, 0, 2, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 2, 1, 1, 1, 1, 0, 1, 2, 3, 0, 0, 0, 0, 0, 0, 2, 2, 4, 1, 0, 4, 0, 1, 0, 2, 0]$ and a final population size of $1.6\cdot 10^7$ were observed. 
+
+Evaluating the estimation function, constraining the mutant fitness to be equal under stressful as under permissive conditions 
+```
+estimate_mu(mc_p, 10^8, mc_s, 1.6*10^7, joint=true)
+```
+we get the following output:
+```
+Heterogeneous-response model with non-dividing response-on cells is selected
+Mutation rate response-off cells = 1.0063771530054458e-8
+Mutation rate response-on cells = 2.6804635521273236e-7
+Fraction response-on subpopulation = 0.15804058054707576
+(Beta) Relative switching rate = 0.10084820149938159
+Relative mutation-rate increase = 26.634781444733562
+Increase in population mean mutation rate = 5.051335741723097
+```
+Without constraining the mutant fitness, we get
+```
+estimate_mu(mc_p, 10^8, mc_s, 1.6*10^7)
+```
+```
+Homogeneous-response model is selected
+(Mutant fitness inferred)
+Mutation rate permissive condition = 9.892353672581243e-9
+Mutation rate stressful condition = 4.9646745015561864e-8
+Mutant fitness permissive condition = 1.2525855391697718
+Mutant fitness stressful condition = 0.13774260645934688
+Increase in population mean mutation rate = 5.018698952623212
+```
+
+### Case 2: Heterogeneous-response model: an estimate of the fraction of cells with elevated expression level of the response is available.
 
 The function 
 ```
@@ -61,6 +104,30 @@ The output parameters are
 From the inferred mutation rates, the relative mutation-rate increase associated with the induction of the stress response can be calculated.\
 If the inference fails, AIC=`Inf` is returned.
 
+**Example (continued)** 
+
+The fraction of cell with elevated stress response is estimated to be around $5\%$. We can estimate the mutation rates via
+
+```
+mu_off, mu_on, AIC = estimate_mu_het(mc_p, 10^8, mc_s, 1.6*10^7, 0.05)
+```
+and calculate the mutation rate increase
+```
+mu_on/mu_off
+79.97939254344872
+```
+We can also infer the relative division rate of cells with evelated stress response via 
+```
+mu_off, mu_on, div_on, AIC = estimate_mu_het(mc_p, 10^8, mc_s, 1.6*10^7, 0.05, rel_div_on="infer")
+```
+which is estimated to be
+```
+div_on
+0.07978002141207725
+```
+
+### Case 3: Homogeneous-response model
+
 The function 
 ```
 estimate_mu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fit_m=1.)
@@ -72,7 +139,7 @@ The input parameters are
 * `mc_s`: Mutant counts for stressful condition (has to be a vector with integers)
 * `Nf_s`: Final population size for stressful condition
 
-Optionally, the input parameter `fit_m` can be set to a value measured in a separate experiment, as a joint inference parameter via `rel_div_on="joint"` or as two inference parameters (permissive/stressful condition) via `rel_div_on="infer"`. \
+Optionally, the input parameter `fit_m` can be set to a value measured in a separate experiment, as a joint inference parameter via `fit_m="joint"` or as two inference parameters (permissive/stressful condition) via `fit_m="infer"`. \
 The output parameters are 
 * Mutation rate permissive condition 
 * Mutation rate stressful condition
