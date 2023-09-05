@@ -13,7 +13,8 @@ include("launcher_script.jl")
 data_inference_manuscript()
 data_supplementary_material()
 ```
-with the dots replaced by the path to the repository.
+with the dots replaced by the path to the repository. \
+The raw figures from the manuscript can be generated using the notebook `plots.ipynb`.
 
 ## Analysing experimental mutant count data
 
