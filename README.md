@@ -49,8 +49,16 @@ As output, the function prints whether/which model is selected (difference in AI
 
 **Example** 
 
-Under permissive conditions, the mutant counts mc_p = $[0, 9, 3, 11, 0, 0, 1, 0, 3, 5, 1, 1, 2, 0, 0, 1, 89, 0, 1, 1, 9, 0, 0, 0, 1, 1, 0, 0, 31, 3, 0, 10, 13, 0, 3, 3, 165, 2, 0, 1, 0, 0, 0, 2, 55, 11, 3, 5, 1, 34]$ and a final population size of $10^8$ were observed. \
-Under stressful conditions, the mutant counts mc_s = $[2, 4, 0, 0, 0, 0, 0, 1, 2, 1, 0, 0, 2, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 2, 1, 1, 1, 1, 0, 1, 2, 3, 0, 0, 0, 0, 0, 0, 2, 2, 4, 1, 0, 4, 0, 1, 0, 2, 0]$ and a final population size of $1.6\cdot 10^7$ were observed. 
+Under permissive conditions, the mutant counts 
+```
+mc_p = [0, 9, 3, 11, 0, 0, 1, 0, 3, 5, 1, 1, 2, 0, 0, 1, 89, 0, 1, 1, 9, 0, 0, 0, 1, 1, 0, 0, 31, 3, 0, 10, 13, 0, 3, 3, 165, 2, 0, 1, 0, 0, 0, 2, 55, 11, 3, 5, 1, 34]
+```
+and a final population size of $10^8$ were observed. \
+Under stressful conditions, the mutant counts 
+```
+mc_s = [2, 4, 0, 0, 0, 0, 0, 1, 2, 1, 0, 0, 2, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 2, 1, 1, 1, 1, 0, 1, 2, 3, 0, 0, 0, 0, 0, 0, 2, 2, 4, 1, 0, 4, 0, 1, 0, 2, 0]
+```
+and a final population size of $1.6\cdot 10^7$ were observed. 
 
 Evaluating the estimation function, constraining the mutant fitness to be equal under stressful as under permissive conditions 
 ```
