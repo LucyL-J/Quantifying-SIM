@@ -194,7 +194,6 @@ function estimate_mu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s)
         p = Optim.minimizer(res)
         return [p[1]/Nf_s, p[2]*p[1]*(Nf_s^(p[3]-1)), 1/(Nf_s^p[3]), 6 + 2*Optim.minimum(res)]                        # Returns mutation rate response-off/-on cells, fraction of response-on subpopulation, AIC
     else
-        println(mu_het, f_on, switching)
         return [0., 0., 0., Inf]                                                                                                        
     end
 end
