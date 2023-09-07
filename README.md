@@ -157,3 +157,34 @@ The output parameters are
 
 From the inferred mutation rates, the increase in population mean mutation rate due to stress can be calculated.\
 If the inference fails, AIC=`Inf` is returned.
+
+**Example (continued)** 
+
+We can also use the standard model, i.e. assuming a homogeneous stress response. By default, the mutant fitness is set to 1
+```
+mu_p, mu_s, AIC = estimate_mu_hom(mc_p, 10^8, mc_s, 1.6*10^7)
+```
+and we can calculate the mutation rate increase
+```
+mu_s/mu_p
+3.832235290114035
+```
+It also possible to infer the mutant fitness. Either as two separate inference parameters under permissive/stressful condtitions via 
+```
+mu_p, rho_p, mu_s, rho_s, AIC = estimate_mu_hom(mc_p, 10^8, mc_s, 1.6*10^7, fit_m="infer")
+```
+and calculate the mutation rate increase for the estimated mutant fitnesses 
+```
+mu_s/mu_p, rho_p, rho_s
+(5.018698952623212, 1.2525855391697718, 0.13774260645934688)
+```
+
+Or we constrain the mutant fitness to be equal under stressful as under permissive conditions
+```
+mu_p, mu_s, rho, AIC = estimate_mu_hom(mc_p, 10^8, mc_s, 1.6*10^7, fit_m="joint")
+```
+and calculate the mutation rate increase for the estimated (joint) mutant fitness
+```
+mu_s/mu_p, rho
+(3.7823499605943303, 0.8882119940565083)
+```
