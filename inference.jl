@@ -167,7 +167,6 @@ function estimate_mu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fit_m
         m_s, rho_s, AIC_s = estimate_init_hom(mc_s, fit_m="infer")                                       # Used as initial parameter in optimisation
         log_likelihood_para_3(para) = -log_likelihood(mc_p, para[1], mc_s, para[2], para[3])             # 3 inference parameters
         res = Optim.optimize(log_likelihood_para_3, [m_p, m_s, rho_s])                                   # Numbers of mutations permissive/stress, differential fitness
-        println(res)
         if Optim.converged(res) == true
             p = Optim.minimizer(res)
             return[p[1]/Nf_p, p[2]/Nf_s, p[3], 6 + 2*Optim.minimum(res)]                                 # Returns mutation rates permissive/stress, differential fitness plus AIC
@@ -191,7 +190,6 @@ function estimate_mu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s)
     switching = log((1-f_on)/f_on) / log(Nf_s)
     log_likelihood_para_3(para) = -log_likelihood(mc_p, mc_s, Nf_p/Nf_s, para[1], para[2], 0., para[3])               # 3 inference parameters
     res = Optim.optimize(log_likelihood_para_3, [m, mu_het, switching])                                               # Number of mutations stress, mutation-rate heterogeneity, relative switching rate          
-    println(res)
     if Optim.converged(res) == true
         p = Optim.minimizer(res)
         return [p[1]/Nf_s, p[2]*p[1]*(Nf_s^(p[3]-1)), 1/(Nf_s^p[3]), 6 + 2*Optim.minimum(res)]                        # Returns mutation rate response-off/-on cells, fraction of response-on subpopulation, AIC
@@ -205,7 +203,6 @@ function estimate_mu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on;
         mu_het, rel_div_on = estimate_init_het(mc_s, m, f_on)                                                    # Used as initial parameters in optimisation
         log_likelihood_para_3(para) = -log_likelihood(mc_p, mc_s, Nf_p/Nf_s, para[1], para[2], para[3], f_on)    # 3 inference parameters
         res = Optim.optimize(log_likelihood_para_3, [m, mu_het, rel_div_on])                                     # Number of mutations stress, mutation-rate heterogeneity, relative division rate response-on cells 
-        println(res)
         if Optim.converged(res) == true
             p = Optim.minimizer(res)
             return [p[1]/Nf_s, p[2]*p[1]*(1-f_on)/(f_on*Nf_s), p[3], 6 + 2*Optim.minimum(res)]                   # Returns mutation rate response-off/-on cells, relative division rate response-on cells, AIC
