@@ -1,0 +1,4 @@
+Chloramphenicol 0.15ug/mL
+2@5
+35,70
+7.80E+08,9.60E+08
