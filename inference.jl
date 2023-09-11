@@ -116,7 +116,6 @@ function estimate_mu(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fitm_p=fa
         println("Mutation rate response-off cells = ", mu_off)
         println("Mutation rate response-on cells = ", mu_on)
         println("Fraction response-on subpopulation = ", f_on)
-        println("(Beta) Relative switching rate = ", (log(1-f_on)-log(f_on))/log(Nf_s))
         println("Relative mutation-rate increase = ", mu_on/mu_off)
         println("Increase in population mean mutation rate = ", (mu_off*(1-f_on) + mu_on*f_on)/mu_off)
     else
@@ -129,7 +128,6 @@ function estimate_mu(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fitm_p=fa
             println("Mutation rate response-off cells = ", mu_off)
             println("Mutation rate response-on cells = ", mu_on)
             println("Fraction response-on subpopulation = ", f_on)
-            println("(Beta) Relative switching rate = ", (log(1-f_on)-log(f_on))/log(Nf_s))
             println("Relative mutation-rate increase = ", mu_on/mu_off)
             println("Increase in population mean mutation rate = ", (mu_off*(1-f_on) + mu_on*f_on)/mu_off)
             println("")
@@ -164,7 +162,13 @@ end
 function estimate_mu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fit_m=1.) 
     if fit_m == "joint"                                                                                  # Differential fitness of mutants is a joint inference parameter
         m_p, rho_p, AIC_p = estimate_init_hom(mc_p, fit_m="infer")                                       # Used as initial parameter in optimisation
+        if AIC_p == Inf
+            m_p, AIC_p = estimate_init_hom(mc_p)
+        end
         m_s, rho_s, AIC_s = estimate_init_hom(mc_s, fit_m="infer")                                       # Used as initial parameter in optimisation
+        if AIC_s == Inf
+            m_s, AIC_s = estimate_init_hom(mc_s)
+        end
         log_likelihood_para_3(para) = -log_likelihood(mc_p, para[1], mc_s, para[2], para[3])             # 3 inference parameters
         res = Optim.optimize(log_likelihood_para_3, [m_p, m_s, rho_s])                                   # Numbers of mutations permissive/stress, differential fitness
         if Optim.converged(res) == true
@@ -185,14 +189,17 @@ end
 function estimate_mu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s) 
     m = estimate_init_hom(mc_p)[1]*Nf_s/Nf_p                                                                          # Used as initial parameter in optimisation
     mu_inc = estimate_init_hom(mc_s)[1] / m                                                                           # Used as initial parameters in optimisation                                                                                           
-    mu_het = maximum([initial_mu_het(mc_s, m, 100), m/Nf_p])                                                          # Used as initial parameter in optimisation
-    f_on = maximum([1 - mu_inc/(mu_het+1), 0.])                                                                       # Used as initial parameter in optimisation
-    switching = log((1-f_on)/f_on) / log(Nf_s)
+    mu_het = maximum([initial_mu_het(mc_s, m, 100), 1.])                                                              # Used as initial parameter in optimisation
+    f_on = 1 - mu_inc/(mu_het+1)                                                                                      # Used as initial parameter in optimisation
+    if f_on <= 0.
+        f_on = 1/mu_inc
+    end
+    switching = (f_on - log((1-f_on)) / log(Nf_s))/2
     log_likelihood_para_3(para) = -log_likelihood(mc_p, mc_s, Nf_p/Nf_s, para[1], para[2], 0., para[3])               # 3 inference parameters
     res = Optim.optimize(log_likelihood_para_3, [m, mu_het, switching])                                               # Number of mutations stress, mutation-rate heterogeneity, relative switching rate          
     if Optim.converged(res) == true
-        p = Optim.minimizer(res)
-        return [p[1]/Nf_s, p[2]*p[1]*(Nf_s^(p[3]-1)), 1/(Nf_s^p[3]), 6 + 2*Optim.minimum(res)]                        # Returns mutation rate response-off/-on cells, fraction of response-on subpopulation, AIC
+        p = Optim.minimizer(res)                       
+        return [p[1]/Nf_s, p[1]/Nf_s*p[2]*(1-p[3])/p[3], p[3], 6 + 2*Optim.minimum(res)]                              # Returns mutation rate response-off/-on cells, fraction of response-on subpopulation, AIC
     else
         return [0., 0., 0., Inf]                                                                                                        
     end
@@ -333,5 +340,9 @@ function initial_mu_het(mc::Vector{Int}, m, z_values::Int) # Estimate the mutati
     for i = 0:z_values-1
         mu_het += initial_mu_het(i/z_values, mc, m)
     end
-    return maximum([mu_het/z_values, 0.])
+    if mu_het == Inf || mu_het < 0.
+        return 0.
+    else
+        return mu_het/z_values
+    end
 end

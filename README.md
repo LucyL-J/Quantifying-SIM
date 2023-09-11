@@ -69,11 +69,10 @@ we get the following output:
 ```
 Heterogeneous-response model with non-dividing response-on cells is selected
 Mutation rate response-off cells = 1.0063771530054458e-8
-Mutation rate response-on cells = 2.6804635521273236e-7
-Fraction response-on subpopulation = 0.15804058054707576
-(Beta) Relative switching rate = 0.10084820149938159
-Relative mutation-rate increase = 26.634781444733562
-Increase in population mean mutation rate = 5.051335741723097
+Mutation rate response-on cells = 4.98306859156552e-7
+Fraction response-on subpopulation = 0.07835144391792799
+Relative mutation-rate increase = 49.51492168402351
+Increase in population mean mutation rate = 4.801214165508437
 ```
 Without constraining the mutant fitness, we get
 ```
