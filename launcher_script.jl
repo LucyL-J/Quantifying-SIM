@@ -259,6 +259,16 @@ function infer_mutation_rates(p, m; p_folder="") # Parameter range p and inferen
             for i = 1:R
                 mu_offs[i], mu_ons[i], f_ons[i], AICs[i] = estimate_mu_het(mc_p[:,R*(j-1)+i][mc_p[:,R*(j-1)+i].<mc_bound], Nf_p, mc_s[:,i][mc_s[:,i].<mc_bound], Nf_s)
             end
+        # Inference under the heterogeneous-response model for unknown fraction of response-on subpopulation and with the relative division rate of response-on cells as an inference parameter
+        elseif m == "het_unknown_fraction_infer_div"
+            for i = 1:R
+                mu_offs[i], mu_ons[i], f_ons[i], div_ons[i], AICs[i] = estimate_mu_het(mc_p[:,R*(j-1)+i][mc_p[:,R*(j-1)+i].<mc_bound], Nf_p, mc_s[:,i][mc_s[:,i].<mc_bound], Nf_s, rel_div_on="infer")
+            end
+        # Inference under the heterogeneous-response model for unknown fraction of response-on subpopulation and setting the relative division rate of response-on cells to the true value
+        elseif m == "het_unknown_fraction_set_div"
+            for i = 1:R
+                mu_offs[i], mu_ons[i], f_ons[i], AICs[i] = estimate_mu_het(mc_p[:,R*(j-1)+i][mc_p[:,R*(j-1)+i].<mc_bound], Nf_p, mc_s[:,i][mc_s[:,i].<mc_bound], Nf_s, rel_div_on=rel_div_on[j])
+            end
         # Inference under homogeneous-response model with the differential fitness of mutants as an inference parameter
         elseif m == "hom_infer_fit"
             for i = 1:R
@@ -339,7 +349,7 @@ function data_inference_manuscript()
     # (ii) Heterogeneous-response model with setting the relative division rate of response-on cells to zero (unknown fraction of response-on subpopulation)
     # (iii) Homogeneous-response model without/with/jointly inferring the differential fitness of mutants
     simulate_fluctuation_assays("range_rel-div-on", set_seed=true)
-    for m in ["het_zero_div", "het_set_div", "het_infer_div", "het_unknown_fraction", "hom_no_fit", "hom_infer_fit", "hom_joint_fit"]
+    for m in ["het_zero_div", "het_set_div", "het_infer_div", "het_unknown_fraction", "het_unknown_fraction_infer_div", "het_unknown_fraction_set_div", "hom_no_fit", "hom_infer_fit", "hom_joint_fit"]
         infer_mutation_rates("range_rel-div-on", m)
     end
 end
