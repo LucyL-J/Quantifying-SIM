@@ -65,94 +65,87 @@ end
 # Optional
 # fitm_p: Mutant fitness under permissive condition
 # fitm_s: Mutant fitness under stressful condition
-# To constrain the mutant fitness to be equal under permissive and stressful conditions, set joint=true
+# To constrain the mutant fitness to be equal under permissive and stressful conditions, set infer_fitm="joint"
+# To not consider mutant fitness as inference parameters, set infer_fitm=false 
+# fit_on: Relative fitness of response-on cells
+# To not consider relative fitness of response-on cells as inference parameters, set infer_fit_on=false
 # Output: selected model and inferred parameters
-function estimate_mu(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fitm_p=false, fitm_s=false, joint=false)
-    mu_off, mu_on, f_on, AIC_het = estimate_mu_het(mc_p, Nf_p, mc_s, Nf_s)
-    if joint == true
-        mu_p_set, mu_s_set, AIC_set = estimate_mu_hom(mc_p, Nf_p, mc_s, Nf_s)
-        mu_p_joint, mu_s_joint, rho_joint, AIC_joint = estimate_mu_hom(mc_p, Nf_p, mc_s, Nf_s, fit_m="joint")
-        AIC_infer = Inf
-    elseif fitm_p == false && fitm_s == false
-        mu_p_set, mu_s_set, AIC_set = estimate_mu_hom(mc_p, Nf_p, mc_s, Nf_s)
-        mu_p_joint, mu_s_joint, rho_joint, AIC_joint = estimate_mu_hom(mc_p, Nf_p, mc_s, Nf_s, fit_m="joint")
-        mu_p_infer, rho_p_infer, mu_s_infer, rho_s_infer, AIC_infer = estimate_mu_hom(mc_p, Nf_p, mc_s, Nf_s, fit_m="infer")
-    elseif fitm_s == false 
-        AIC_set = Inf
-        m_p_joint, AIC_p = estimate_init_hom(mc_p, fit_m=fitm_p)
-        mu_p_joint = m_p_joint/Nf_p
-        mu_p_infer = mu_p_joint
-        m_s_joint, AIC_s_joint = estimate_init_hom(mc_s, fit_m=fitm_p)
-        mu_s_joint = m_s_joint/Nf_s
-        AIC_joint = AIC_p + AIC_s_joint
-        m_s_infer, rho_s_infer, AIC_s_infer = estimate_init_hom(mc_s, fit_m="infer")
-        mu_s_infer = m_s_infer/Nf_s
-        AIC_infer = AIC_p + AIC_s_infer
-        rho_p_infer = fitm_p
-    elseif fitm_p == false 
-        AIC_set = Inf
-        m_s_joint, AIC_s = estimate_init_hom(mc_s, fit_m=fitm_s)
-        mu_s_joint = m_s_joint/Nf_s
-        mu_s_infer = mu_s_joint
-        m_p_joint, AIC_p_joint = estimate_init_hom(mc_p, fit_m=fitm_s)
-        mu_p_joint = m_p_joint/Nf_p
-        AIC_joint = AIC_p_joint + AIC_s
-        m_p_infer, rho_p, AIC_p_infer = estimate_init_hom(mc_p, fit_m="infer")
-        mu_p_infer = m_p_infer/Nf_p
-        AIC_infer = AIC_p_infer + AIC_s
-        rho_s_infer = fitm_s  
+function estimate_mu(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fitm_p=1., fitm_s=1., infer_fitm=true, fit_on=0., infer_fit_on=true)
+    mu_off_set, mu_on_set, f_on_set, rel_div_on_set, AIC_het_set = estimate_mu_het(mc_p, Nf_p, mc_s, Nf_s, rel_div_on=fit_on)
+    if infer_fit_on == true
+        mu_off_infer, mu_on_infer, f_on_infer, rel_div_on_infer, AIC_het_infer = estimate_mu_het(mc_p, Nf_p, mc_s, Nf_s, rel_div_on="infer")
     else
-        m_p_set, AIC_p_set = estimate_init_hom(mc_p, fit_m=fitm_p)
-        mu_p_set = m_p_set/Nf_p
-        m_s_set, AIC_s_set = estimate_init_hom(mc_s, fit_m=fitm_s)
-        mu_s_set = m_s_set/Nf_s
-        AIC_set = AIC_p_set + AIC_s_set
-        AIC_joint = Inf
-        AIC_infer = Inf
+        AIC_het_infer = Inf
     end
-    AIC_hom = minimum([AIC_set, AIC_joint, AIC_infer])
+    AIC_het = minimum([AIC_het_set, AIC_het_infer])
+    m_het = argmin([AIC_het_set, AIC_het_infer])
+    if m_het == 1
+        m_het = "Relative fitness of response-on cells set to input value/to 0"
+        mu_off, mu_on, f_on, div_on = mu_off_set, mu_on_set, f_on_set, rel_div_on_set
+    elseif m_het == 2
+        m_het = "Relative fitness of response-on cells inferred"
+        mu_off, mu_on, f_on, div_on = mu_off_infer, mu_on_infer, f_on_infer, rel_div_on_infer
+    end
+    if infer_fitm == "joint"
+        mu_p_joint, rho_p_joint, mu_s_joint, rho_s_joint, AIC_hom_joint = estimate_mu_hom(mc_p, Nf_p, mc_s, Nf_s, fit_m="joint")
+        fitm_s = fitm_p
+        AIC_hom_infer = Inf
+    elseif infer_fitm == true
+        mu_p_infer, rho_p_infer, mu_s_infer, rho_s_infer, AIC_hom_infer = estimate_mu_hom(mc_p, Nf_p, mc_s, Nf_s, fit_m="infer")
+        AIC_hom_joint = Inf
+    else
+        AIC_hom_joint = Inf
+        AIC_hom_infer = Inf
+    end
+    m_p_set, rho_p_set, AIC_p_hom_set = estimate_init_hom(mc_p, fit_m=fitm_p)
+    mu_p_set = m_p_set/Nf_p
+    m_s_set, rho_s_set, AIC_s_hom_set = estimate_init_hom(mc_s, fit_m=fitm_s)
+    mu_s_set = m_s_set/Nf_s
+    AIC_hom_set = AIC_p_hom_set + AIC_s_hom_set
+    AIC_hom = minimum([AIC_hom_set, AIC_hom_joint, AIC_hom_infer])
+    m_hom = argmin([AIC_hom_set, AIC_hom_joint, AIC_hom_infer])
+    if m_hom == 1
+        m_hom = "Mutant fitness set to input value/to 1"
+        mu_p, mu_s, rho_p, rho_s = mu_p_set, mu_s_set, rho_p_set, rho_s_set 
+    elseif m_hom == 2
+        m_hom = "Mutant fitness inferred, constrained to be equal under permissive/stressful conditions"
+        mu_p, mu_s, rho_p, rho_s = mu_p_joint, mu_s_joint, rho_p_joint, rho_s_joint
+    elseif m_hom == 3
+        m_hom = "Mutant fitnesses inferred"
+        mu_p, mu_s, rho_p, rho_s = mu_p_infer, mu_s_infer, rho_p_infer, rho_s_infer
+    end
     if AIC_het - AIC_hom < -2
-        println("Heterogeneous-response model with non-dividing response-on cells is selected")
+        println("Heterogeneous-response model is selected")
+        println(m_het)
         println("Mutation rate response-off cells = ", mu_off)
         println("Mutation rate response-on cells = ", mu_on)
         println("Fraction response-on subpopulation = ", f_on)
         println("Relative mutation-rate increase = ", mu_on/mu_off)
         println("Increase in population mean mutation rate = ", (mu_off*(1-f_on) + mu_on*f_on)/mu_off)
+    elseif AIC_het - AIC_hom > 2
+        println("Homogeneous-response model is selected")
+        println(m_hom)
+        println("Mutation rate permissive condition = ", mu_p)
+        println("Mutation rate stressful condition = ", mu_s)
+        println("Mutant fitness permissive condition = ", rho_p)
+        println("Mutant fitness stressful condition = ", rho_s)
+        println("Increase in population mean mutation rate = ", mu_s/mu_p)
     else
-        if AIC_het - AIC_hom > 2
-            println("Homogeneous-response model is selected")
-        else
-            println("No preferred model")
-            println("")
-            println("Heterogeneous-response model inferred parameters:")
-            println("Mutation rate response-off cells = ", mu_off)
-            println("Mutation rate response-on cells = ", mu_on)
-            println("Fraction response-on subpopulation = ", f_on)
-            println("Relative mutation-rate increase = ", mu_on/mu_off)
-            println("Increase in population mean mutation rate = ", (mu_off*(1-f_on) + mu_on*f_on)/mu_off)
-            println("")
-            println("Homogeneous-response model inferred parameters:")
-        end
-        m = argmin([AIC_set, AIC_joint, AIC_infer])
-        if m == 1
-            println("(Mutant fitness set to 1 or the input value)")
-            println("Mutation rate permissive condition = ", mu_p_set)
-            println("Mutation rate stressful condition = ", mu_s_set)
-            println("Increase in population mean mutation rate = ", mu_s_set/mu_p_set)
-        elseif m == 2
-            println("(Mutant fitness inferred, constrained to be equal under permissive and stressful conditions)")
-            println("Mutation rate permissive condition = ", mu_p_joint)
-            println("Mutation rate stressful condition = ", mu_s_joint)
-            println("Mutant fitness = ", rho_joint)
-            println("Increase in population mean mutation rate = ", mu_s_joint/mu_p_joint)
-        elseif m == 3
-            println("(Mutant fitness inferred)")
-            println("Mutation rate permissive condition = ", mu_p_infer)
-            println("Mutation rate stressful condition = ", mu_s_infer)
-            println("Mutant fitness permissive condition = ", rho_p_infer)
-            println("Mutant fitness stressful condition = ", rho_s_infer)
-            println("Increase in population mean mutation rate = ", mu_s_infer/mu_p_infer)
-        end
+        println("No preferred model")
+        println("")
+        println("Heterogeneous-response model inferred parameters:")
+        println("Mutation rate response-off cells = ", mu_off)
+        println("Mutation rate response-on cells = ", mu_on)
+        println("Fraction response-on subpopulation = ", f_on)
+        println("Relative mutation-rate increase = ", mu_on/mu_off)
+        println("Increase in population mean mutation rate = ", (mu_off*(1-f_on) + mu_on*f_on)/mu_off)
+        println("")
+        println("Homogeneous-response model inferred parameters:")
+        println("Mutation rate permissive condition = ", mu_p)
+        println("Mutation rate stressful condition = ", mu_s)
+        println("Mutant fitness permissive condition = ", rho_p)
+        println("Mutant fitness stressful condition = ", rho_s)
+        println("Increase in population mean mutation rate = ", mu_s/mu_p)
     end
 end
 
@@ -163,51 +156,79 @@ function estimate_mu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fit_m
     if fit_m == "joint"                                                                                  # Differential fitness of mutants is a joint inference parameter
         m_p, rho_p, AIC_p = estimate_init_hom(mc_p, fit_m="infer")                                       # Used as initial parameter in optimisation
         if AIC_p == Inf
-            m_p, AIC_p = estimate_init_hom(mc_p)
+            m_p, rho, AIC_p = estimate_init_hom(mc_p)
         end
         m_s, rho_s, AIC_s = estimate_init_hom(mc_s, fit_m="infer")                                       # Used as initial parameter in optimisation
         if AIC_s == Inf
-            m_s, AIC_s = estimate_init_hom(mc_s)
+            m_s, rho, AIC_s = estimate_init_hom(mc_s)
         end
         log_likelihood_para_3(para) = -log_likelihood(mc_p, para[1], mc_s, para[2], para[3])             # 3 inference parameters
         res = Optim.optimize(log_likelihood_para_3, [m_p, m_s, rho_s])                                   # Numbers of mutations permissive/stress, differential fitness
         if Optim.converged(res) == true
             p = Optim.minimizer(res)
-            return[p[1]/Nf_p, p[2]/Nf_s, p[3], 6 + 2*Optim.minimum(res)]                                 # Returns mutation rates permissive/stress, differential fitness plus AIC
+            return[p[1]/Nf_p, p[3], p[2]/Nf_s, p[3], 6 + 2*Optim.minimum(res)]                           # Returns mutation rates permissive/stress, differential fitness plus AIC
         else
-            return [0., 0., -1., Inf]
+            return [0., -1., 0., -1., Inf]
         end
     else
-        x_p = estimate_init_hom(mc_p, fit_m=fit_m)                            # Estimation of number of mutations and optional differential fitness: permissive
-        x_p[1] /= Nf_p                                                        # Mutation rate = number of mutations / final population size
-        x_s = estimate_init_hom(mc_s, fit_m=fit_m)                            # Estimation of number of mutations and optional differential fitness: stress
-        x_s[1] /= Nf_s                                                        # Mutation rate = number of mutations / final population size
-        return [x_p[1:end-1]; x_s[1:end-1]; x_p[end]+x_s[end]]                # Returns inferred parameters plus AIC value (inferences permissive/stressful are independent)
+        m_p, rho_p, AIC_p = estimate_init_hom(mc_p, fit_m=fit_m)              # Estimation of number of mutations and optional differential fitness: permissive
+        m_s, rho_s, AIC_s = estimate_init_hom(mc_s, fit_m=fit_m)              # Estimation of number of mutations and optional differential fitness: stress
+        return [m_p/Nf_p, rho_p, m_s/Nf_s, rho_s, AIC_p+AIC_s]                # Returns inferred parameters plus AIC value (inferences permissive/stressful are independent)
     end
 end
-# Estimating mutation rates of response-off/-on cells using the heterogeneous-response model with optional relative division rate of response-on cells for unknown fraction of response-on subpopulation
-function estimate_mu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s) 
-    m = estimate_init_hom(mc_p)[1]*Nf_s/Nf_p                                                                          # Used as initial parameter in optimisation
-    mu_inc = estimate_init_hom(mc_s)[1] / m                                                                           # Used as initial parameters in optimisation                                                                                           
-    mu_het = maximum([initial_mu_het(mc_s, m, 100), 1.])                                                              # Used as initial parameter in optimisation
-    f_on = 1 - mu_inc/(mu_het+1)                                                                                      # Used as initial parameter in optimisation
+# Estimating mutation rates of response-off/-on cells using the heterogeneous-response model with optional relative division rate of response-on cells inferred for unknown fraction of response-on subpopulation
+function estimate_mu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; rel_div_on=0.) 
+    m = estimate_init_hom(mc_p)[1]*Nf_s/Nf_p                                                                          # Used as initial parameter in optimisation: number of mutations from response-off subpopulation
+    mu_inc = estimate_init_hom(mc_s)[1] / m                                                                           # Used as initial parameter in optimisation: increase in population-average mutation rate for relative division rate of response-on cells = 1                                                                                           
+    mu_het = maximum([initial_mu_het(mc_s, m, 100), 1.])                                                              # Used as initial parameter in optimisation: mutation-rate heterogeneity
+    f_on = 1 - mu_inc/(mu_het+1)                                                                                      # Used as initial parameter in optimisation: final fraction of response-on subpopulation 
     if f_on <= 0.
         f_on = 1/mu_inc
     end
-    switching = (f_on - log((1-f_on)) / log(Nf_s))/2
-    log_likelihood_para_3(para) = -log_likelihood(mc_p, mc_s, Nf_p/Nf_s, para[1], para[2], 0., para[3])               # 3 inference parameters
-    res = Optim.optimize(log_likelihood_para_3, [m, mu_het, switching])                                               # Number of mutations stress, mutation-rate heterogeneity, relative switching rate          
+    f_on = - log(1-f_on) / log(Nf_s)                                                                                  # Used as initial parameter in optimisation: relative switching rate (equals fraction of response-on subpopulation for relative division rate of response-on cells = 0)
+    log_likelihood_para_init(para) = -log_likelihood(mc_p, mc_s, Nf_p/Nf_s, para[1], para[2], 0., para[3])            # Used as fixed parameter in optimisation: fraction of response-on subpopulation
+    res = Optim.optimize(log_likelihood_para_init, [m, mu_het, f_on])
     if Optim.converged(res) == true
-        p = Optim.minimizer(res)                       
-        return [p[1]/Nf_s, p[1]/Nf_s*p[2]*(1-p[3])/p[3], p[3], 6 + 2*Optim.minimum(res)]                              # Returns mutation rate response-off/-on cells, fraction of response-on subpopulation, AIC
+        p_init = Optim.minimizer(res)
+        if rel_div_on == "infer"                                                                                      # Relative division rate of response-on cells is inferred 
+            mu_het, rel_div_on = estimate_init_het(mc_s, p_init[1], p_init[2], p_init[3], 0.5)                        # Used as initial parameter in optimisation: mutation-rate heterogeneity, relative division rate of response-on subpopulation (initial value set to 0.5)
+            f_on = p_init[3]/(1 - rel_div_on)                                                                         # Correct the fraction of response-on subpopulation by the relative division rate of response-on cells
+            if f_on > 1. || f_on < 0.
+                f_on = 1-p_init[3] 
+            end
+            log_likelihood_para_3(para) = -log_likelihood(mc_p, mc_s, Nf_p/Nf_s, para[1], para[2], para[3], f_on)     # 3 inference parameters (+1 from above)
+            res = Optim.optimize(log_likelihood_para_3, [p_init[1], mu_het, rel_div_on])                              # Number of mutations stress, mutation-rate heterogeneity, relative division rate response-on cells 
+            if Optim.converged(res) == true
+                p = Optim.minimizer(res)
+                return[p[1]/Nf_s, p[1]/Nf_s*p[2]*(1-f_on)/f_on, f_on, p[3], 8 + 2*Optim.minimum(res)]                 # Returns mutation rate response-off/-on cells, fraction of response-on subpopulation, relative division rate response-on cells, AIC
+            else
+                return [0., 0., 0., -1., Inf]
+            end
+        else
+            mu_het, div_on = estimate_init_het(mc_s, p_init[1], p_init[2], p_init[3], rel_div_on)                     # Used as initial parameter in optimisation: mutation-rate heterogeneity, used for correction of the fraction of response-on cells: relative division rate (initial value set to input parameter)
+            f_on = p_init[3]/(1 - div_on)                                                                             # Correct the fraction of response-on subpopulation by the inferred relative division rate of response-on cells 
+            if f_on > 1. || f_on < 0.
+                f_on = 1-p_init[3] 
+            end
+            log_likelihood_para_2(para) = -log_likelihood(mc_p, mc_s, Nf_p/Nf_s, para[1], para[2], rel_div_on, f_on)  # 2 inference parameters (+1 from above)
+            res = Optim.optimize(log_likelihood_para_2, [p_init[1], p_init[2]])                                       # Number of mutations stress, mutation-rate heterogeneity
+            if Optim.converged(res) == true
+                p = Optim.minimizer(res)
+                return[p[1]/Nf_s, p[1]/Nf_s*p[2]*(1-f_on)/f_on, f_on, rel_div_on, 6 + 2*Optim.minimum(res)]           # Returns mutation rate response-off/-on cells, fraction of response-on subpopulation, relative division rate response-on cells (input parameter), AIC
+            else
+                return [0., 0., 0., -1., Inf]
+            end
+        end
     else
-        return [0., 0., 0., Inf]                                                                                                        
+        return [0., 0., 0., -1., Inf]
     end
 end
-function estimate_mu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on; rel_div_on=0.)                  # Estimating mutation rates of off/on cells using the new method with optional relative division rate of on cells for known fraction of response-on subpopulation
+# Estimating mutation rates of off/on cells using the new method with optional relative division rate of on cells inferred for known fraction of response-on subpopulation
+function estimate_mu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on; rel_div_on=0.)                  
     m = estimate_init_hom(mc_p)[1]*Nf_s/Nf_p                                                                     # Used as initial parameter in optimisation
     if rel_div_on == "infer"                                                                                     # Relative division rate of response-on cells is inferred
-        mu_het, rel_div_on = estimate_init_het(mc_s, m, f_on)                                                    # Used as initial parameters in optimisation
+        mu_het = maximum([initial_mu_het(mc_s, m, 100), 1.])
+        mu_het, rel_div_on = estimate_init_het(mc_s, m, mu_het, f_on)                                            # Used as initial parameters in optimisation
         log_likelihood_para_3(para) = -log_likelihood(mc_p, mc_s, Nf_p/Nf_s, para[1], para[2], para[3], f_on)    # 3 inference parameters
         res = Optim.optimize(log_likelihood_para_3, [m, mu_het, rel_div_on])                                     # Number of mutations stress, mutation-rate heterogeneity, relative division rate response-on cells 
         if Optim.converged(res) == true
@@ -222,9 +243,9 @@ function estimate_mu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on;
         res = Optim.optimize(log_likelihood_para_2, [m, mu_het])                                                 # Number of mutations stress, mutation-rate heterogeneity
         if Optim.converged(res) == true
             p = Optim.minimizer(res)
-            return [p[1]/Nf_s, p[2]*p[1]*(1-f_on)/(f_on*Nf_s), 4 + 2*Optim.minimum(res)]                         # Returns mutation rate response-off/-on cells, AIC
+            return [p[1]/Nf_s, p[2]*p[1]*(1-f_on)/(f_on*Nf_s), rel_div_on, 4 + 2*Optim.minimum(res)]             # Returns mutation rate response-off/-on cells, relative division rate response-on cells (input parameter), AIC
         else
-            return [0., 0., Inf]                                                                                    
+            return [0., 0., -1., Inf]                                                                                    
         end
     end
 end
@@ -246,19 +267,19 @@ function estimate_init_hom(mc::Vector{Int}; fit_m=1.)                          #
         res = Optim.optimize(log_likelihood_para_1, 0., maximum(mc))           # 1 inference parameter
         if Optim.converged(res) == true
             p = Optim.minimizer(res)
-            return [p, 2 + 2*Optim.minimum(res)]                               # Number of mutations, AIC
+            return [p, fit_m, 2 + 2*Optim.minimum(res)]                        # Number of mutations, differential fitness mutants (input parameter), AIC
         else
-            return [1., Inf]                                                       
+            return [1., 1., Inf]                                                       
         end                                                                              
     end
 end
-function estimate_init_het(mc::Vector{Int}, m, f_on)                                                  # Estimation of the mutation-rate heterogeneity for given number of mutations (stress) and known fraction of response-on subpopulation
+function estimate_init_het(mc::Vector{Int}, m, mu_het, f_on, div_init)                                # Estimation of the mutation-rate heterogeneity for given number of mutations (stress) and known fraction of response-on subpopulation
     log_likelihood_para_2(para) = -log_likelihood(mc, m, para[1], para[2], f_on)                      # 2 inference parameters: mutation-rate heterogeneity, relative division rate of response-on cells
-    res = Optim.optimize(log_likelihood_para_2, [initial_mu_het(mc, m, 100), 0.5])                    # Initial value for relative division rate of response-on cells is set to 0.5
+    res = Optim.optimize(log_likelihood_para_2, [initial_mu_het(mc, m, 100), div_init])               # Initial value for relative division rate of response-on cells is set input value
     if Optim.converged(res) == true
         return Optim.minimizer(res)                                                                   
     else
-        return [1., 0.]
+        return [mu_het, 0.]
     end
 end
 

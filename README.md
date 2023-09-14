@@ -1,7 +1,8 @@
 # Quantifying-SIM
 Documentation of the simulations and computational analysis of the manuscript \
 *Estimating mutation rates under heterogeneous stress responses* \
-Lucy Lansch-Justen, Meriem El Karoui, Helen K. Alexander.
+Lucy Lansch-Justen, Meriem El Karoui, Helen K. Alexander \
+[bioRxiv 2023.09.05.555499](https://doi.org/10.1101/2023.09.05.555499).
 
 The simulations and the inference algorithms are written in the programming language [julia verison 1.6](https://julialang.org/downloads/#long_term_support_release). 
 
@@ -44,7 +45,9 @@ The input parameters are
 Optional input parameters are
 * `fitm_p`: Mutant fitness under permissive condition (relative to non-mutants)
 * `fitm_s`: Mutant fitness under stressful condition (relative to non-mutants)
-* `joint`: To constrain the mutant fitness to be equal under permissive and stressful conditions, set `joint=true`
+* `infer_fitm`: To constrain the mutant fitness to be equal under permissive and stressful conditions, set `infer_fitm="joint"`. To not consider mutant fitness as inference parameters, set `infer_fitm=false`
+* `fit_on`: Relative fitness of response-on cells (compared to response-off cells)
+* `infer_fit_on`: To not consider relative fitness of response-on cells as inference parameter, set `infer_fit_on=false`
 
 As output, the function prints whether/which model is selected (difference in AIC > 2) and the respective inferred parameters.
 
@@ -63,16 +66,17 @@ and a final population size of $1.6\cdot 10^7$ were observed.
 
 Evaluating the estimation function, constraining the mutant fitness to be equal under stressful as under permissive conditions 
 ```
-estimate_mu(mc_p, 10^8, mc_s, 1.6*10^7, joint=true)
+estimate_mu(mc_p, 10^8, mc_s, 1.6*10^7, infer_fitm="joint")
 ```
 we get the following output:
 ```
-Heterogeneous-response model with non-dividing response-on cells is selected
+Heterogeneous-response model is selected
+Relative fitness of response-on cells set to input value/to 0
 Mutation rate response-off cells = 1.0063771530054458e-8
-Mutation rate response-on cells = 4.98306859156552e-7
-Fraction response-on subpopulation = 0.07835144391792799
-Relative mutation-rate increase = 49.51492168402351
-Increase in population mean mutation rate = 4.801214165508437
+Mutation rate response-on cells = 3.695824541407066e-6
+Fraction response-on subpopulation = 0.011332286079793058
+Relative mutation-rate increase = 367.2405052489369
+Increase in population mean mutation rate = 5.150342179488904
 ```
 Without constraining the mutant fitness, we get
 ```
@@ -80,7 +84,7 @@ estimate_mu(mc_p, 10^8, mc_s, 1.6*10^7)
 ```
 ```
 Homogeneous-response model is selected
-(Mutant fitness inferred)
+Mutant fitnesses inferred
 Mutation rate permissive condition = 9.892353672581243e-9
 Mutation rate stressful condition = 4.9646745015561864e-8
 Mutant fitness permissive condition = 1.2525855391697718
@@ -117,9 +121,9 @@ If the inference fails, AIC=`Inf` is returned.
 The fraction of cell with elevated stress response is estimated to be around $5\%$. We can estimate the mutation rates via
 
 ```
-mu_off, mu_on, AIC = estimate_mu_het(mc_p, 10^8, mc_s, 1.6*10^7, 0.05)
+mu_off, mu_on, div_on, AIC = estimate_mu_het(mc_p, 10^8, mc_s, 1.6*10^7, 0.05)
 ```
-and calculate the mutation rate increase
+and calculate the mutation-rate increase
 ```
 mu_on/mu_off
 79.97939254344872
@@ -128,10 +132,10 @@ We can also infer the relative division rate of cells with evelated stress respo
 ```
 mu_off, mu_on, div_on, AIC = estimate_mu_het(mc_p, 10^8, mc_s, 1.6*10^7, 0.05, rel_div_on="infer")
 ```
-which is estimated to be
+and calculate the mutation-rate increase for the estimated relative fitness
 ```
-div_on
-0.07978002141207725
+mu_on/mu_off, div_on
+(78.08027830786192, 0.07978002141207725)
 ```
 
 ### Case 3: Homogeneous-response model
@@ -161,9 +165,9 @@ If the inference fails, AIC=`Inf` is returned.
 
 We can also use the standard model, i.e. assuming a homogeneous stress response. By default, the mutant fitness is set to 1
 ```
-mu_p, mu_s, AIC = estimate_mu_hom(mc_p, 10^8, mc_s, 1.6*10^7)
+mu_p, rho_p, mu_s, rho_s, AIC = estimate_mu_hom(mc_p, 10^8, mc_s, 1.6*10^7)
 ```
-and we can calculate the mutation rate increase
+and we can calculate the mutation-rate increase
 ```
 mu_s/mu_p
 3.832235290114035
@@ -172,7 +176,7 @@ It also possible to infer the mutant fitness. Either as two separate inference p
 ```
 mu_p, rho_p, mu_s, rho_s, AIC = estimate_mu_hom(mc_p, 10^8, mc_s, 1.6*10^7, fit_m="infer")
 ```
-and calculate the mutation rate increase for the estimated mutant fitnesses 
+and calculate the mutation-rate increase for the estimated mutant fitnesses 
 ```
 mu_s/mu_p, rho_p, rho_s
 (5.018698952623212, 1.2525855391697718, 0.13774260645934688)
@@ -180,9 +184,9 @@ mu_s/mu_p, rho_p, rho_s
 
 Or we constrain the mutant fitness to be equal under stressful as under permissive conditions
 ```
-mu_p, mu_s, rho, AIC = estimate_mu_hom(mc_p, 10^8, mc_s, 1.6*10^7, fit_m="joint")
+mu_p, rho_p, mu_s, rho_p, AIC = estimate_mu_hom(mc_p, 10^8, mc_s, 1.6*10^7, fit_m="joint")
 ```
-and calculate the mutation rate increase for the estimated (joint) mutant fitness
+and calculate the mutation-rate increase for the estimated (joint) mutant fitness
 ```
 mu_s/mu_p, rho
 (3.7823499605943303, 0.8882119940565083)
