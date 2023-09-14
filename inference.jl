@@ -200,15 +200,11 @@ function estimate_mu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; rel_d
         if Optim.converged(res) == true
             p_init = Optim.minimizer(res)
             if rel_div_on == "infer"
-                mu_het, rel_div_on = estimate_init_het(mc_s, p_init[1], p_init[2], p_init[3])
-            else
-                mu_het = estimate_init_het(mc_s, p_init[1], p_init[2], rel_div_on, p_init[3])
-            end
-            f_on = p_init[3]/(1 - rel_div_on)
-            if f_on > 1. || f_on < 0.
-                f_on = 1-p_init[3] 
-            end
-            if rel_div_on == "infer"
+                mu_het, rel_div_on = estimate_init_het(mc_s, p_init[1], p_init[2], p_init[3], 0.5)
+                f_on = p_init[3]/(1 - rel_div_on)
+                if f_on > 1. || f_on < 0.
+                    f_on = 1-p_init[3] 
+                end
                 log_likelihood_para_3(para) = -log_likelihood(mc_p, mc_s, Nf_p/Nf_s, para[1], para[2], para[3], f_on)
                 res = Optim.optimize(log_likelihood_para_3, [p_init[1], mu_het, rel_div_on])
                 if Optim.converged(res) == true
@@ -218,8 +214,13 @@ function estimate_mu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; rel_d
                     return [0., 0., 0., -1., Inf]
                 end
             else
+                mu_het, div_on = estimate_init_het(mc_s, p_init[1], p_init[2], p_init[3], rel_div_on)
+                f_on = p_init[3]/(1 - div_on)
+                if f_on > 1. || f_on < 0.
+                    f_on = 1-p_init[3] 
+                end
                 log_likelihood_para_2(para) = -log_likelihood(mc_p, mc_s, Nf_p/Nf_s, para[1], para[2], rel_div_on, f_on)
-                res = Optim.optimize(log_likelihood_para_2, [p_init[1], mu_het])
+                res = Optim.optimize(log_likelihood_para_2, [p_init[1], p_init[2]])
                 if Optim.converged(res) == true
                     p = Optim.minimizer(res)
                     return[p[1]/Nf_s, p[1]/Nf_s*p[2]*(1-f_on)/f_on, f_on, rel_div_on, 6 + 2*Optim.minimum(res)]
@@ -280,22 +281,13 @@ function estimate_init_hom(mc::Vector{Int}; fit_m=1.)                          #
         end                                                                              
     end
 end
-function estimate_init_het(mc::Vector{Int}, m, mu_het, f_on)                                          # Estimation of the mutation-rate heterogeneity for given number of mutations (stress) and known fraction of response-on subpopulation
+function estimate_init_het(mc::Vector{Int}, m, mu_het, f_on, div_init)                                # Estimation of the mutation-rate heterogeneity for given number of mutations (stress) and known fraction of response-on subpopulation
     log_likelihood_para_2(para) = -log_likelihood(mc, m, para[1], para[2], f_on)                      # 2 inference parameters: mutation-rate heterogeneity, relative division rate of response-on cells
-    res = Optim.optimize(log_likelihood_para_2, [initial_mu_het(mc, m, 100), 0.5])                    # Initial value for relative division rate of response-on cells is set to 0.5
+    res = Optim.optimize(log_likelihood_para_2, [initial_mu_het(mc, m, 100), div_init])               # Initial value for relative division rate of response-on cells is set input value
     if Optim.converged(res) == true
         return Optim.minimizer(res)                                                                   
     else
         return [mu_het, 0.]
-    end
-end
-function estimate_init_het(mc::Vector{Int}, m, mu_het, rel_div_on, f_on)                              # Estimation of the mutation-rate heterogeneity for given number of mutations (stress) and known fraction of response-on subpopulation
-    log_likelihood_para_1(para) = -log_likelihood(mc, m, para[1], rel_div_on, f_on)                   # 1 inference parameter: mutation-rate heterogeneity
-    res = Optim.optimize(log_likelihood_para_1, 0., mu_het)                    
-    if Optim.converged(res) == true
-        return Optim.minimizer(res)                                                                  
-    else
-        return mu_het
     end
 end
 
