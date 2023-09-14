@@ -66,9 +66,17 @@ end
 # fitm_p: Mutant fitness under permissive condition
 # fitm_s: Mutant fitness under stressful condition
 # To constrain the mutant fitness to be equal under permissive and stressful conditions, set joint=true
+# rfit_on: Relative fitness of response-on cells
 # Output: selected model and inferred parameters
-function estimate_mu(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fitm_p=false, fitm_s=false, joint=false)
-    mu_off, mu_on, f_on, AIC_het = estimate_mu_het(mc_p, Nf_p, mc_s, Nf_s)
+function estimate_mu(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fitm_p=false, fitm_s=false, joint=false, rfit_on=false)
+    if rfit_on == false
+        mu_off_set, mu_on_set, f_on_set, rel_div_on_set, AIC_set = estimate_mu_het(mc_p, Nf_p, mc_s, Nf_s)
+        mu_off_infer, mu_on_infer, f_on_infer, rel_div_on_infer, AIC_infer = estimate_mu_het(mc_p, Nf_p, mc_s, Nf_s, rel_div_on="infer")
+    else
+        mu_off_set, mu_on_set, f_on_set, rel_div_on_set, AIC_set = estimate_mu_het(mc_p, Nf_p, mc_s, Nf_s, rel_div_on=rfit_on)
+        AIC_infer = Inf
+    end
+    AIC_het = minimum([AIC_set, AIC_infer])
     if joint == true
         mu_p_set, mu_s_set, AIC_set = estimate_mu_hom(mc_p, Nf_p, mc_s, Nf_s)
         mu_p_joint, mu_s_joint, rho_joint, AIC_joint = estimate_mu_hom(mc_p, Nf_p, mc_s, Nf_s, fit_m="joint")
@@ -112,6 +120,7 @@ function estimate_mu(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fitm_p=fa
     end
     AIC_hom = minimum([AIC_set, AIC_joint, AIC_infer])
     if AIC_het - AIC_hom < -2
+        
         println("Heterogeneous-response model with non-dividing response-on cells is selected")
         println("Mutation rate response-off cells = ", mu_off)
         println("Mutation rate response-on cells = ", mu_on)
@@ -163,26 +172,24 @@ function estimate_mu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fit_m
     if fit_m == "joint"                                                                                  # Differential fitness of mutants is a joint inference parameter
         m_p, rho_p, AIC_p = estimate_init_hom(mc_p, fit_m="infer")                                       # Used as initial parameter in optimisation
         if AIC_p == Inf
-            m_p, AIC_p = estimate_init_hom(mc_p)
+            m_p, rho, AIC_p = estimate_init_hom(mc_p)
         end
         m_s, rho_s, AIC_s = estimate_init_hom(mc_s, fit_m="infer")                                       # Used as initial parameter in optimisation
         if AIC_s == Inf
-            m_s, AIC_s = estimate_init_hom(mc_s)
+            m_s, rho, AIC_s = estimate_init_hom(mc_s)
         end
         log_likelihood_para_3(para) = -log_likelihood(mc_p, para[1], mc_s, para[2], para[3])             # 3 inference parameters
         res = Optim.optimize(log_likelihood_para_3, [m_p, m_s, rho_s])                                   # Numbers of mutations permissive/stress, differential fitness
         if Optim.converged(res) == true
             p = Optim.minimizer(res)
-            return[p[1]/Nf_p, p[2]/Nf_s, p[3], 6 + 2*Optim.minimum(res)]                                 # Returns mutation rates permissive/stress, differential fitness plus AIC
+            return[p[1]/Nf_p, p[3], p[2]/Nf_s, p[3], 6 + 2*Optim.minimum(res)]                           # Returns mutation rates permissive/stress, differential fitness plus AIC
         else
-            return [0., 0., -1., Inf]
+            return [0., -1., 0., -1., Inf]
         end
     else
-        x_p = estimate_init_hom(mc_p, fit_m=fit_m)                            # Estimation of number of mutations and optional differential fitness: permissive
-        x_p[1] /= Nf_p                                                        # Mutation rate = number of mutations / final population size
-        x_s = estimate_init_hom(mc_s, fit_m=fit_m)                            # Estimation of number of mutations and optional differential fitness: stress
-        x_s[1] /= Nf_s                                                        # Mutation rate = number of mutations / final population size
-        return [x_p[1:end-1]; x_s[1:end-1]; x_p[end]+x_s[end]]                # Returns inferred parameters plus AIC value (inferences permissive/stressful are independent)
+        m_p, rho_p, AIC_p = estimate_init_hom(mc_p, fit_m=fit_m)              # Estimation of number of mutations and optional differential fitness: permissive
+        m_s, rho_s, AIC_s = estimate_init_hom(mc_s, fit_m=fit_m)              # Estimation of number of mutations and optional differential fitness: stress
+        return [m_p/Nf_p, rho_p, m_s/Nf_s, rho_s, AIC_p+AIC_s]                # Returns inferred parameters plus AIC value (inferences permissive/stressful are independent)
     end
 end
 # Estimating mutation rates of response-off/-on cells using the heterogeneous-response model with optional relative division rate of response-on cells inferred for unknown fraction of response-on subpopulation
@@ -252,9 +259,9 @@ function estimate_mu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on;
         res = Optim.optimize(log_likelihood_para_2, [m, mu_het])                                                 # Number of mutations stress, mutation-rate heterogeneity
         if Optim.converged(res) == true
             p = Optim.minimizer(res)
-            return [p[1]/Nf_s, p[2]*p[1]*(1-f_on)/(f_on*Nf_s), 4 + 2*Optim.minimum(res)]                         # Returns mutation rate response-off/-on cells, AIC
+            return [p[1]/Nf_s, p[2]*p[1]*(1-f_on)/(f_on*Nf_s), rel_div_on, 4 + 2*Optim.minimum(res)]             # Returns mutation rate response-off/-on cells, relative division rate response-on cells (input parameter), AIC
         else
-            return [0., 0., Inf]                                                                                    
+            return [0., 0., -1., Inf]                                                                                    
         end
     end
 end
@@ -276,9 +283,9 @@ function estimate_init_hom(mc::Vector{Int}; fit_m=1.)                          #
         res = Optim.optimize(log_likelihood_para_1, 0., maximum(mc))           # 1 inference parameter
         if Optim.converged(res) == true
             p = Optim.minimizer(res)
-            return [p, 2 + 2*Optim.minimum(res)]                               # Number of mutations, AIC
+            return [p, fit_m, 2 + 2*Optim.minimum(res)]                        # Number of mutations, differential fitness mutants (input parameter), AIC
         else
-            return [1., Inf]                                                       
+            return [1., 1., Inf]                                                       
         end                                                                              
     end
 end
