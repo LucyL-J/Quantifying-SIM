@@ -43,8 +43,13 @@ end
 # Mutant count distribution for a heterogeneous population with response-off and -on subpopulation. The relative division rate of on cells is an optional input parameter with default value of zero
 # Mutation rates (for both response-off and -on cells) are given in mutations per division of response-off cells and scaled to be in units of mutations per generation
 function P_mutant_count(K::Int, m, mu_het, f_on; rel_div_on=0.)
-    p_off = P_mutant_count(K, m * (1-f_on)/(1-f_on*(1-rel_div_on)))                                   
-    p_on = P_mutant_count(K, m * mu_het * (1-f_on)/(1-f_on*(1-rel_div_on)), fit_m=rel_div_on/(1-f_on*(1-rel_div_on))) 
+    if rel_div_on == 0.
+        p_off = P_mutant_count(K, m)
+        p_on = P_mutant_count(K, m * mu_het, fit_m=0.)
+    else
+        p_off = P_mutant_count(K, m * (1-f_on)/(1-f_on*(1-rel_div_on)))                                   
+        p_on = P_mutant_count(K, m * mu_het * (1-f_on)/(1-f_on*(1-rel_div_on)), fit_m=rel_div_on/(1-f_on*(1-rel_div_on))) 
+    end
     p = zeros(Float64, length(p_off))
     for k = 0:length(p_off)-1
         pk = 0
@@ -180,7 +185,7 @@ end
 function estimate_mu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; rel_div_on=0.) 
     m = estimate_init_hom(mc_p)[1]*Nf_s/Nf_p                                                                          # Used as initial parameter in optimisation: number of mutations from response-off subpopulation
     mu_inc = estimate_init_hom(mc_s)[1] / m                                                                           # Used as initial parameter in optimisation: increase in population-average mutation rate for relative division rate of response-on cells = 1                                                                                           
-    mu_het = maximum([initial_mu_het(mc_s, m, 100), 1.])                                                              # Used as initial parameter in optimisation: mutation-rate heterogeneity
+    mu_het, div_init = estimate_init_het(mc_s, m, 0.)                                                                # Used as initial parameter in optimisation: mutation-rate heterogeneity
     f_on = 1 - mu_inc/(mu_het+1)                                                                                      # Used as initial parameter in optimisation: final fraction of response-on subpopulation 
     if f_on <= 0.
         f_on = 1/mu_inc
@@ -191,7 +196,7 @@ function estimate_mu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; rel_d
     if Optim.converged(res) == true
         p_init = Optim.minimizer(res)
         if rel_div_on == "infer"                                                                                      # Relative division rate of response-on cells is inferred 
-            mu_het, rel_div_on = estimate_init_het(mc_s, p_init[1], p_init[2], p_init[3], 0.5)                        # Used as initial parameter in optimisation: mutation-rate heterogeneity, relative division rate of response-on subpopulation (initial value set to 0.5)
+            mu_het, rel_div_on = estimate_init_het(mc_s, p_init[1], p_init[3])                        # Used as initial parameter in optimisation: mutation-rate heterogeneity, relative division rate of response-on subpopulation (initial value set to 0.5)
             f_on = p_init[3]/(1 - rel_div_on)                                                                         # Correct the fraction of response-on subpopulation by the relative division rate of response-on cells
             if f_on > 1. || f_on < 0.
                 f_on = 1-p_init[3] 
@@ -205,8 +210,8 @@ function estimate_mu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; rel_d
                 return [0., 0., 0., -1., Inf]
             end
         else
-            mu_het, div_on = estimate_init_het(mc_s, p_init[1], p_init[2], p_init[3], rel_div_on)                     # Used as initial parameter in optimisation: mutation-rate heterogeneity, used for correction of the fraction of response-on cells: relative division rate (initial value set to input parameter)
-            f_on = p_init[3]/(1 - div_on)                                                                             # Correct the fraction of response-on subpopulation by the inferred relative division rate of response-on cells 
+            mu_het, div_init = estimate_init_het(mc_s, p_init[1], p_init[3], rel_div_on=rel_div_on)                     # Used as initial parameter in optimisation: mutation-rate heterogeneity, used for correction of the fraction of response-on cells: relative division rate (initial value set to input parameter)
+            f_on = p_init[3]/(1 - div_init)                                                                             # Correct the fraction of response-on subpopulation by the inferred relative division rate of response-on cells 
             if f_on > 1. || f_on < 0.
                 f_on = 1-p_init[3] 
             end
@@ -227,8 +232,7 @@ end
 function estimate_mu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on; rel_div_on=0.)                  
     m = estimate_init_hom(mc_p)[1]*Nf_s/Nf_p                                                                     # Used as initial parameter in optimisation
     if rel_div_on == "infer"                                                                                     # Relative division rate of response-on cells is inferred
-        mu_het = maximum([initial_mu_het(mc_s, m, 100), 1.])
-        mu_het, rel_div_on = estimate_init_het(mc_s, m, mu_het, f_on)                                            # Used as initial parameters in optimisation
+        mu_het, rel_div_on = estimate_init_het(mc_s, m, f_on)                                                    # Used as initial parameters in optimisation 
         log_likelihood_para_3(para) = -log_likelihood(mc_p, mc_s, Nf_p/Nf_s, para[1], para[2], para[3], f_on)    # 3 inference parameters
         res = Optim.optimize(log_likelihood_para_3, [m, mu_het, rel_div_on])                                     # Number of mutations stress, mutation-rate heterogeneity, relative division rate response-on cells 
         if Optim.converged(res) == true
@@ -238,7 +242,7 @@ function estimate_mu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on;
             return [0., 0., -1., Inf]                                                                               
         end
     else
-        mu_het = maximum([initial_mu_het(mc_s, m, 100), m/Nf_p])                                                 # Used as initial parameter in optimisation
+        mu_het, div_init = estimate_init_het(mc_s, m, f_on, rel_div_on=rel_div_on)                               # Used as initial parameter in optimisation
         log_likelihood_para_2(para) = -log_likelihood(mc_p, mc_s, Nf_p/Nf_s, para[1], para[2], rel_div_on, f_on) # 2 inference parameters
         res = Optim.optimize(log_likelihood_para_2, [m, mu_het])                                                 # Number of mutations stress, mutation-rate heterogeneity
         if Optim.converged(res) == true
@@ -273,13 +277,23 @@ function estimate_init_hom(mc::Vector{Int}; fit_m=1.)                          #
         end                                                                              
     end
 end
-function estimate_init_het(mc::Vector{Int}, m, mu_het, f_on, div_init)                                # Estimation of the mutation-rate heterogeneity for given number of mutations (stress) and known fraction of response-on subpopulation
-    log_likelihood_para_2(para) = -log_likelihood(mc, m, para[1], para[2], f_on)                      # 2 inference parameters: mutation-rate heterogeneity, relative division rate of response-on cells
-    res = Optim.optimize(log_likelihood_para_2, [initial_mu_het(mc, m, 100), div_init])               # Initial value for relative division rate of response-on cells is set input value
-    if Optim.converged(res) == true
-        return Optim.minimizer(res)                                                                   
+function estimate_init_het(mc::Vector{Int}, m, f_on; rel_div_on=0.)                                       # Estimation of the mutation-rate heterogeneity for given number of mutations (stress) and known fraction of response-on subpopulation
+    if f_on == 0.
+        log_likelihood_para_1(para) = -log_likelihood(mc, m, para, 0., 0.)                                # 1 inference parameter: mutation-rate heterogeneity
+        res = Optim.optimize(log_likelihood_para_1, 0., maximum(mc))
+        if Optim.converged(res) == true
+            return [Optim.minimizer(res), rel_div_on]
+        else
+            return [maximum([initial_mu_het(mc, m, 100), f_on]), rel_div_on]
+        end
     else
-        return [mu_het, 0.]
+        log_likelihood_para_2(para) = -log_likelihood(mc, m, para[1], para[2], f_on)                      # 2 inference parameters: mutation-rate heterogeneity, relative division rate of response-on cells
+        res = Optim.optimize(log_likelihood_para_2, [initial_mu_het(mc, m, 100), rel_div_on])             # Initial value for relative division rate of response-on cells is set input value
+        if Optim.converged(res) == true
+            return Optim.minimizer(res)                                                                   
+        else
+            return [maximum([initial_mu_het(mc, m, 100), f_on]), rel_div_on]
+        end
     end
 end
 
