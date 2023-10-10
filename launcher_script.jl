@@ -347,7 +347,7 @@ function data_inference_manuscript()
     # (ii) Heterogeneous-response model with setting the relative division rate of response-on cells to zero (unknown fraction of response-on subpopulation)
     # (iii) Homogeneous-response model without/with/jointly inferring the differential fitness of mutants
     simulate_fluctuation_assays("range_rel-div-on", set_seed=true)
-    for m in ["het_zero_div", "het_set_div", "het_infer_div", "het_unknown_fraction", "het_unknown_fraction_infer_div", "het_unknown_fraction_set_div", "hom_no_fit", "hom_infer_fit", "hom_joint_fit"]
+    for m in ["het_zero_div", "het_set_div", "het_infer_div", "het_unknown_fraction", "het_unknown_fraction_infer_div", "hom_no_fit", "hom_infer_fit", "hom_joint_fit"]
         infer_mutation_rates("range_rel-div-on", m)
     end
 end
