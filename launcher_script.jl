@@ -341,7 +341,7 @@ function data_inference_manuscript()
     # (i) Heterogeneous-response model with setting the relative division rate of response-on cells to zero/true value or inferring it (known fraction of response-on subpopulation)
     # (ii) Heterogeneous-response model with setting the relative division rate of response-on cells to zero (unknown fraction of response-on subpopulation)
     # (iii) Homogeneous-response model without/with/jointly inferring the differential fitness of mutants
-    for p in ["range_rel-div-on_switch-1", "range_rel-div-on_switch-5"]
+    for p in ["range_rel-div-on_inc-10", "range_rel-div-on_inc-100"]
         simulate_fluctuation_assays(p, set_seed=true)
         for m in ["het_zero_div", "het_set_div", "het_infer_div", "het_unknown_fraction", "het_unknown_fraction_infer_div", "hom_no_fit", "hom_infer_fit", "hom_joint_fit"]
             infer_mutation_rates(p, m)
@@ -352,5 +352,5 @@ end
 function data_supplementary_material()
     # Parameter regime: switching rate x relative division rate of response-on cells
     # Simulating response-on non-mutants stochastically to test assumption A1
-    simulate_fluctuation_assays("range_switching", p2="range_rel-div-on", set_seed=true, A1=true)
+    simulate_fluctuation_assays("range_switching", p2="range_rel-div-on_inc-100", set_seed=true, A1=true)
 end
