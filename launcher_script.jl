@@ -42,7 +42,7 @@ function simulate_fluctuation_assays(p; p2="", set_seed=false, A1=false)
     fitness_m_off = 1.
     death_off = 0.
     death_on = 0.
-    f0_on = switching/(division_off-death_off)
+    f0_on = 0.
     Nf = 10^9
     # Data frames in which the simulated data will be stored
     if A1 == true
@@ -54,12 +54,12 @@ function simulate_fluctuation_assays(p; p2="", set_seed=false, A1=false)
         nmf = Matrix{Int}(undef, (R, f))
     else
         mutant_counts = DataFrame()
-        population_sizes = DataFrame(parameter=["final_pop_size", "fraction_subpop_on"]) # Under stress, final population size and fraction of response-on subpopulation are stored
+        population_sizes = DataFrame(parameter=["final_pop_size", "fraction_subpop_on", "final_time"]) # Under stress, final population size and fraction of response-on subpopulation are stored
         mutant_counts_p = DataFrame()
-        population_sizes_p = DataFrame(parameter=["final_pop_size"])
+        population_sizes_p = DataFrame(parameter=["final_pop_size", "final_time"])
         T_p = t_expected_m(N0, division_off, mutation_off, 0., 0, 0., 0., expected_M) # Under no stress (ns) conditions, there is no response-on subpopulation
         Nf_p = pop_size(T_p, N0, division_off)
-        population_sizes_p.value = [Nf_p]
+        population_sizes_p.value = [Nf_p, T_p]
     end
     # Default: only one parameter is varied
     if p2 == ""                                                         
@@ -100,7 +100,7 @@ function simulate_fluctuation_assays(p; p2="", set_seed=false, A1=false)
                     mutant_counts_p[:, "$(R*(j-1)+i)"] = mc_p
                 end
                 mc, Nf, f_on = mc, Nf, f_on = mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures, fitness_m_off=fitness_m_off, death_off=death_off, death_on=death_on, f0_on=f0_on)
-                population_sizes.value = [Nf, f_on]
+                population_sizes.value = [Nf, f_on, T]
                 CSV.write("output_data/"*p*"/mutant_counts_$j.csv", mutant_counts)
                 CSV.write("output_data/"*p*"/population_sizes_$j.csv", population_sizes)
             end
@@ -181,7 +181,7 @@ function simulate_fluctuation_assays(p; p2="", set_seed=false, A1=false)
                         mutant_counts_p[:, "$(R*(j-1)+i)"] = mc_p
                     end
                     mc, Nf, f_on = mc, Nf, f_on = mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures, fitness_m_off=fitness_m_off, death_off=death_off, death_on=death_on, f0_on=f0_on)
-                    population_sizes.value = [Nf, f_on]
+                    population_sizes.value = [Nf, f_on, T]
                     CSV.write("output_data/"*p*p_folder*"$j2/mutant_counts_$j.csv", mutant_counts)
                     CSV.write("output_data/"*p*p_folder*"$j2/population_sizes_$j.csv", population_sizes)
                 end
@@ -264,11 +264,6 @@ function infer_mutation_rates(p, m; p_folder="") # Parameter range p and inferen
             for i = 1:R
                 mu_offs[i], mu_ons[i], f_ons[i], div_ons[i], AICs[i] = estimate_mu_het(mc_p[:,R*(j-1)+i][mc_p[:,R*(j-1)+i].<mc_bound], Nf_p, mc_s[:,i][mc_s[:,i].<mc_bound], Nf_s, rel_div_on="infer")
             end
-        # Inference under the heterogeneous-response model for unknown fraction of response-on subpopulation and setting the relative division rate of response-on cells to the true value
-        elseif m == "het_unknown_fraction_set_div"
-            for i = 1:R
-                mu_offs[i], mu_ons[i], f_ons[i], div_ons[i], AICs[i] = estimate_mu_het(mc_p[:,R*(j-1)+i][mc_p[:,R*(j-1)+i].<mc_bound], Nf_p, mc_s[:,i][mc_s[:,i].<mc_bound], Nf_s, rel_div_on=rel_div_on[j])
-            end
         # Inference under homogeneous-response model with the differential fitness of mutants as an inference parameter
         elseif m == "hom_infer_fit"
             for i = 1:R
@@ -346,14 +341,16 @@ function data_inference_manuscript()
     # (i) Heterogeneous-response model with setting the relative division rate of response-on cells to zero/true value or inferring it (known fraction of response-on subpopulation)
     # (ii) Heterogeneous-response model with setting the relative division rate of response-on cells to zero (unknown fraction of response-on subpopulation)
     # (iii) Homogeneous-response model without/with/jointly inferring the differential fitness of mutants
-    simulate_fluctuation_assays("range_rel-div-on", set_seed=true)
-    for m in ["het_zero_div", "het_set_div", "het_infer_div", "het_unknown_fraction", "het_unknown_fraction_infer_div", "het_unknown_fraction_set_div", "hom_no_fit", "hom_infer_fit", "hom_joint_fit"]
-        infer_mutation_rates("range_rel-div-on", m)
+    for p in ["range_rel-div-on_inc-10", "range_rel-div-on_inc-100"]
+        simulate_fluctuation_assays(p, set_seed=true)
+        for m in ["het_zero_div", "het_set_div", "het_infer_div", "het_unknown_fraction", "het_unknown_fraction_infer_div", "hom_no_fit", "hom_infer_fit", "hom_joint_fit"]
+            infer_mutation_rates(p, m)
+        end
     end
 end
 
 function data_supplementary_material()
     # Parameter regime: switching rate x relative division rate of response-on cells
     # Simulating response-on non-mutants stochastically to test assumption A1
-    simulate_fluctuation_assays("range_switching", p2="range_rel-div-on", set_seed=true, A1=true)
+    simulate_fluctuation_assays("range_switching", p2="range_rel-div-on_inc-100", set_seed=true, A1=true)
 end
