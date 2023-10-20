@@ -72,11 +72,11 @@ we get the following output:
 ```
 Heterogeneous-response model is selected
 Relative fitness of response-on cells set to input value/to 0
-Mutation rate response-off cells = 1.0063771530054458e-8
-Mutation rate response-on cells = 3.695824541407066e-6
-Fraction response-on subpopulation = 0.011332286079793058
-Relative mutation-rate increase = 367.2405052489369
-Increase in population mean mutation rate = 5.150342179488904
+Mutation rate response-off cells = 1.0063765009509016e-8
+Mutation rate response-on cells = 1.7818401953824812e-6
+Fraction response-on subpopulation = 0.02322242044793327
+Relative mutation-rate increase = 177.05502798394656
+Increase in population mean mutation rate = 5.088423881815865
 ```
 Without constraining the mutant fitness, we get
 ```
@@ -126,7 +126,7 @@ mu_off, mu_on, div_on, AIC = estimate_mu_het(mc_p, 10^8, mc_s, 1.6*10^7, 0.05)
 and calculate the mutation-rate increase
 ```
 mu_on/mu_off
-79.97939254344872
+79.97913363234322
 ```
 We can also infer the relative division rate of cells with evelated stress response via 
 ```
@@ -135,7 +135,7 @@ mu_off, mu_on, div_on, AIC = estimate_mu_het(mc_p, 10^8, mc_s, 1.6*10^7, 0.05, r
 and calculate the mutation-rate increase for the estimated relative fitness
 ```
 mu_on/mu_off, div_on
-(78.08027830786192, 0.07978002141207725)
+(78.07974840080496, 0.07977206759158645)
 ```
 
 ### Case 3: Homogeneous-response model
@@ -184,7 +184,7 @@ mu_s/mu_p, rho_p, rho_s
 
 Or we constrain the mutant fitness to be equal under stressful as under permissive conditions
 ```
-mu_p, rho_p, mu_s, rho_p, AIC = estimate_mu_hom(mc_p, 10^8, mc_s, 1.6*10^7, fit_m="joint")
+mu_p, rho, mu_s, rho, AIC = estimate_mu_hom(mc_p, 10^8, mc_s, 1.6*10^7, fit_m="joint")
 ```
 and calculate the mutation-rate increase for the estimated (joint) mutant fitness
 ```
