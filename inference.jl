@@ -1,4 +1,4 @@
-using Distributions, SpecialFunctions, Optim, StatsBase
+using SpecialFunctions, Optim, StatsBase
 
 # The following recursive formulas for the pdf of the mutant count distribution are based on 
 # Keller, P., & Antal, T. (2015). Mutant number distribution in an exponentially growing population. Journal of Statistical Mechanics: Theory and Experiment, 2015(1), P01011. https://doi.org/10.1088/1742-5468/2015/01/P01011
@@ -8,7 +8,7 @@ function P_mutant_count(K::Int, m; fit_m=1.)    # Mutations per generation = mut
     p = zeros(Float64, K+1)
     if fit_m == 0.
         for k = 0:K
-            p[k+1] = pdf(Poisson(m), k)          # When the division rate is zero, the mutant count distribution is given by a Poisson distribution
+            p[k+1] = m^k * exp(-m) / factorial(big(k))          # When the division rate is zero, the mutant count distribution is given by a Poisson distribution
         end
     else
         q = Q(K, m, fit_m)
