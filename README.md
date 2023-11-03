@@ -33,7 +33,7 @@ with the dots replaced again by the path to the repository.
 
 The function 
 ```
-estimate_mu(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fitm_p=false, fitm_s=false, joint=false)
+estimate_mu(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fitm_p=1., fitm_s=1., infer_fitm=true, fit_on=0., infer_fit_on=true)
 ``` 
 compares between the heterogeneous- and the homogeneous-response model using the AIC and estimates the mutation rates under the selected model. \
 The input parameters are
