@@ -37,18 +37,18 @@ estimate_mu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on; rel_div_
 ```
 
 The input parameters are
-* `mc_p`: Mutant counts for permissive condition (a vector with integers)
-* `Nf_p`: Avergae final population size for permissive condition
-* `mc_s`: Mutant counts for stressful condition (a vector with integers)
-* `Nf_s`: Average final population size for stressful condition 
+* `mc_p`: Mutant counts under permissive condition (vector of integers)
+* `Nf_p`: Average final population size under permissive condition
+* `mc_s`: Mutant counts under stressful condition (vector of integers)
+* `Nf_s`: Average final population size under stressful condition 
 
 Optional
-* `f_on`: Fraction of the response-on subpopulation (when known from a separate experimental measurement). Inferred when not given as an iput parameter.
+* `f_on`: Fraction of the response-on subpopulation (when known from a separate experimental measurement). Inferred if not given as an iput parameter.
 * `rel_div_on`: Relative division rate of response-on cells can be set to a value measured in a separate experiment or set as an additional inference parameter via `rel_div_on="infer"`. 
 
-The output parameters are 
-* Mutation rate response-off
-* Mutation rate response-on
+The estimation output parameters are 
+* Mutation rate of response-off cells
+* Mutation rate of response-on cells
 * Optional: Inferred fraction of the response-on subpopulation
 * Relative fitness of response-on compared to response-off cells
 * AIC
@@ -62,12 +62,12 @@ Under permissive conditions, the mutant counts
 ```
 mc_p = [0, 9, 3, 11, 0, 0, 1, 0, 3, 5, 1, 1, 2, 0, 0, 1, 89, 0, 1, 1, 9, 0, 0, 0, 1, 1, 0, 0, 31, 3, 0, 10, 13, 0, 3, 3, 165, 2, 0, 1, 0, 0, 0, 2, 55, 11, 3, 5, 1, 34]
 ```
-and a final population size of $10^8$ were observed. \
+and an average final population size of $10^8$ were observed. \
 Under stressful conditions, the mutant counts 
 ```
 mc_s = [2, 4, 0, 0, 0, 0, 0, 1, 2, 1, 0, 0, 2, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 2, 1, 1, 1, 1, 0, 1, 2, 3, 0, 0, 0, 0, 0, 0, 2, 2, 4, 1, 0, 4, 0, 1, 0, 2, 0]
 ```
-and a final population size of $1.6\cdot 10^7$ were observed. 
+and an average final population size of $1.6\cdot 10^7$ were observed. 
 
 #### Case 1: The fraction of the response-on subpopulation is unknown
 
@@ -127,18 +127,18 @@ estimate_mu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fit_m=1.)
 ```
 estimates population-wide mutation rates from fluctuation assay data. \
 The input parameters are
-* `mc_p`: Mutant counts for permissive condition (a vector with integers)
-* `Nf_p`: Average final population size for permissive condition
-* `mc_s`: Mutant counts for stressful condition (a vector with integers)
-* `Nf_s`: Average final population size for stressful condition
+* `mc_p`: Mutant counts under permissive condition (vector of integers)
+* `Nf_p`: Average final population size under permissive condition
+* `mc_s`: Mutant counts under stressful condition (vector with integers)
+* `Nf_s`: Average final population size under stressful condition
 
-Optionally, the mutant fitness `fit_m` can be set to a value measured in a separate experiment, set as a joint inference parameter via `fit_m="joint"` or as two separate inference parameters (permissive/stressful condition) via `fit_m="infer"`. 
+Optionally, the mutant fitness `fit_m` can be set to a value measured in a separate experiment, set as a joint (constrained) inference parameter via `fit_m="joint"` or as two separate inference parameters (permissive/stressful condition) via `fit_m="infer"`. 
 
-The output parameters are 
-* Mutation rate permissive condition 
-* Mutant fitness permissive condition (relative to non-mutants)
-* Mutation rate stressful condition
-* Mutant fitness stressful condition (relative to non-mutants)
+The estimation output parameters are 
+* Mutation rate under permissive condition 
+* Mutant fitness under permissive condition (relative to non-mutants)
+* Mutation rate under stressful condition
+* Mutant fitness under stressful condition (relative to non-mutants)
 * AIC
 
 From the inferred mutation rates, the increase in population mean mutation rate due to stress can be calculated.\
@@ -174,7 +174,7 @@ which yields
    0.13774260645934688
  403.32920230179843
 ```
-i.e. an estimated increase in population mean mutation rate of $\approx 5$-fold and mutant fitness under permissive/stressful consitions of $\approx 1.25$ and $\approx 0.14$, respectively. \
+i.e. an estimated increase in population mean mutation rate of $\approx 5$-fold and mutant fitness under permissive/stressful consitions of $\approx 1.25$ and $\approx 0.14$, respectively. This version of the model fits the data better, as it's AIC is a lot smaller. \
 Alternatively, we can constrain the mutant fitness to be equal under permissive/stressful conditions via
 ```
 res = estimate_mu_hom(mc_p, 10^8, mc_s, 1.6*10^7, fit_m="joint")
@@ -188,4 +188,4 @@ yielding
    0.8882119940565083
  420.2910160915429
 ```
-with an estimated increase in population mean mutation rate of $\approx 3.8$-fold and a mutant fitness of $\approx 0.89$.
+with an estimated increase in population mean mutation rate of $\approx 3.8$-fold and a mutant fitness of $\approx 0.89$. This model version fits the data worse.
