@@ -227,7 +227,12 @@ function log_likelihood(mc_p::Vector{Int}, m_p, mc_s::Vector{Int}, m_s, fit_m)
     else
         p_p = P_mutant_count(maximum(mc_p), m_p, fit_m=fit_m)                                      # Mutant count distribution without stress
         p_s = P_mutant_count(maximum(mc_s), m_s, fit_m=fit_m) 
-        return sum(counts(mc_p, 0:maximum(mc_p)) .* log.(p_p)) + sum(counts(mc_s, 0:maximum(mc_s)) .* log.(p_s))  # The two observations are independent and their probabilities can be multiplied
+        ll = sum(counts(mc_p, 0:maximum(mc_p)) .* log.(p_p)) + sum(counts(mc_s, 0:maximum(mc_s)) .* log.(p_s))  # The two observations are independent and their probabilities can be multiplied
+        if !isnan(ll)
+            return ll
+        else 
+            return -Inf
+        end
     end
 end
 # Log-likelihood to observe a mutant count mc for a heterogeneous population with relative division rate of response-on cells 
@@ -248,7 +253,12 @@ function log_likelihood(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, m, mu_het
     else
         p_p = P_mutant_count(maximum(mc_p), m*N_ratio)                                                            # Mutant count distribution: permissive
         p_s = P_mutant_count(maximum(mc_s), m, mu_het, f_on, rel_div_on=rel_div_on)                               # Mutant count distribution: stress
-        return sum(counts(mc_p, 0:maximum(mc_p)) .* log.(p_p)) + sum(counts(mc_s, 0:maximum(mc_s)) .* log.(p_s))  # The two observations are independent and their probabilities can be multiplied
+        ll = sum(counts(mc_p, 0:maximum(mc_p)) .* log.(p_p)) + sum(counts(mc_s, 0:maximum(mc_s)) .* log.(p_s))  # The two observations are independent and their probabilities can be multiplied
+        if !isnan(ll)
+            return ll
+        else 
+            return -Inf
+        end
     end
 end
 
