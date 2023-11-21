@@ -18,6 +18,12 @@ function P_mutant_count(K::Int, m; fit_m=1.)    # Mutations per generation = mut
             for i = 0:k-1
                 S += (k-i) * q[k-i+1] * p[i+1]
             end
+            if isnan(S)
+                for k = 0:K
+                    p[k+1] = m^k * exp(-m) / factorial(big(k))          # When the division rate is zero, the mutant count distribution is given by a Poisson distribution
+                end
+                break
+            end
             p[k+1] = S/k
         end
     end
