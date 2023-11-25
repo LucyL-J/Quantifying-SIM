@@ -1,14 +1,15 @@
-using Distributions, SpecialFunctions, Optim, StatsBase
+using SpecialFunctions, Optim, StatsBase
 
 # The following recursive formulas for the pdf of the mutant count distribution are based on 
 # Keller, P., & Antal, T. (2015). Mutant number distribution in an exponentially growing population. Journal of Statistical Mechanics: Theory and Experiment, 2015(1), P01011. https://doi.org/10.1088/1742-5468/2015/01/P01011
 
-# Muntant count distribution for a homogeneous population with optional differential fitness of mutants
-function P_mutant_count(K::Int, m; fit_m=1.)    # Mutations per generation = mutation rate [1/h] / growth rate [1/h]
+# Muntant count distribution for a homogeneous population with optional differential fitness of mutants (set to =1 by default)
+# Returns probabilities to observe 0,...,K mutants
+function P_mutant_count(K::Int, m; fit_m=1.)    # Input parameters: Number of mutations during growth phase, mutant fitness
     p = zeros(Float64, K+1)
     if fit_m == 0.
         for k = 0:K
-            p[k+1] = pdf(Poisson(m), k)          # When the division rate is zero, the mutant count distribution is given by a Poisson distribution
+            p[k+1] = m^k * exp(-m) / factorial(big(k))          # When the division rate is zero, the mutant count distribution is given by a Poisson distribution
         end
     else
         q = Q(K, m, fit_m)
@@ -17,6 +18,12 @@ function P_mutant_count(K::Int, m; fit_m=1.)    # Mutations per generation = mut
             S = 0.
             for i = 0:k-1
                 S += (k-i) * q[k-i+1] * p[i+1]
+            end
+            if isnan(S)
+                for k = 0:K
+                    p[k+1] = m^k * exp(-m) / factorial(big(k))          # Very small division rates are approximated as =0
+                end
+                break
             end
             p[k+1] = S/k
         end
@@ -40,8 +47,12 @@ function Q(K::Int, m, fit_m)
     return q
 end
 
-# Mutant count distribution for a heterogeneous population with response-off and -on subpopulation. The relative division rate of on cells is an optional input parameter with default value of zero
-# Mutation rates (for both response-off and -on cells) are given in mutations per division of response-off cells and scaled to be in units of mutations per generation
+# Mutant count distribution for a heterogeneous population with response-off and -on subpopulation.
+# Input parameters
+# m: Number of mutations arising in the response-off subpopulation
+# mu_het: Mutation-rate heterogeneity
+# f_on: Fraction of response-on subpopulation
+# rel_div_on: Relative division rate of response-on cells (compared to response-off cells). Optional input, set to =0 by default 
 function P_mutant_count(K::Int, m, mu_het, f_on; rel_div_on=0.)
     if rel_div_on == 0.
         p_off = P_mutant_count(K, m)
@@ -59,99 +70,6 @@ function P_mutant_count(K::Int, m, mu_het, f_on; rel_div_on=0.)
         p[k+1] = pk
     end
     return p
-end
-
-# Mutation rate estimation and model selection between heterogeneous/homogeneous response
-# Input parameters
-# mc_p: Mutant counts for permissive condition
-# Nf_p: Final population size for permissive condition
-# mc_s: Mutant counts for stressful condition
-# Nf_s: Final population size for stressful condition
-# Optional
-# fitm_p: Mutant fitness under permissive condition
-# fitm_s: Mutant fitness under stressful condition
-# To constrain the mutant fitness to be equal under permissive and stressful conditions, set infer_fitm="joint"
-# To not consider mutant fitness as inference parameters, set infer_fitm=false 
-# fit_on: Relative fitness of response-on cells
-# To not consider relative fitness of response-on cells as inference parameters, set infer_fit_on=false
-# Output: selected model and inferred parameters
-function estimate_mu(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fitm_p=1., fitm_s=1., infer_fitm=true, fit_on=0., infer_fit_on=true)
-    mu_off_set, mu_on_set, f_on_set, rel_div_on_set, AIC_het_set = estimate_mu_het(mc_p, Nf_p, mc_s, Nf_s, rel_div_on=fit_on)
-    if infer_fit_on == true
-        mu_off_infer, mu_on_infer, f_on_infer, rel_div_on_infer, AIC_het_infer = estimate_mu_het(mc_p, Nf_p, mc_s, Nf_s, rel_div_on="infer")
-    else
-        AIC_het_infer = Inf
-    end
-    AIC_het = minimum([AIC_het_set, AIC_het_infer])
-    m_het = argmin([AIC_het_set, AIC_het_infer])
-    if m_het == 1
-        m_het = "Relative fitness of response-on cells set to input value/to 0"
-        mu_off, mu_on, f_on, div_on = mu_off_set, mu_on_set, f_on_set, rel_div_on_set
-    elseif m_het == 2
-        m_het = "Relative fitness of response-on cells inferred"
-        mu_off, mu_on, f_on, div_on = mu_off_infer, mu_on_infer, f_on_infer, rel_div_on_infer
-    end
-    if infer_fitm == "joint"
-        mu_p_joint, rho_p_joint, mu_s_joint, rho_s_joint, AIC_hom_joint = estimate_mu_hom(mc_p, Nf_p, mc_s, Nf_s, fit_m="joint")
-        fitm_s = fitm_p
-        AIC_hom_infer = Inf
-    elseif infer_fitm == true
-        mu_p_infer, rho_p_infer, mu_s_infer, rho_s_infer, AIC_hom_infer = estimate_mu_hom(mc_p, Nf_p, mc_s, Nf_s, fit_m="infer")
-        AIC_hom_joint = Inf
-    else
-        AIC_hom_joint = Inf
-        AIC_hom_infer = Inf
-    end
-    m_p_set, rho_p_set, AIC_p_hom_set = estimate_init_hom(mc_p, fit_m=fitm_p)
-    mu_p_set = m_p_set/Nf_p
-    m_s_set, rho_s_set, AIC_s_hom_set = estimate_init_hom(mc_s, fit_m=fitm_s)
-    mu_s_set = m_s_set/Nf_s
-    AIC_hom_set = AIC_p_hom_set + AIC_s_hom_set
-    AIC_hom = minimum([AIC_hom_set, AIC_hom_joint, AIC_hom_infer])
-    m_hom = argmin([AIC_hom_set, AIC_hom_joint, AIC_hom_infer])
-    if m_hom == 1
-        m_hom = "Mutant fitness set to input value/to 1"
-        mu_p, mu_s, rho_p, rho_s = mu_p_set, mu_s_set, rho_p_set, rho_s_set 
-    elseif m_hom == 2
-        m_hom = "Mutant fitness inferred, constrained to be equal under permissive/stressful conditions"
-        mu_p, mu_s, rho_p, rho_s = mu_p_joint, mu_s_joint, rho_p_joint, rho_s_joint
-    elseif m_hom == 3
-        m_hom = "Mutant fitnesses inferred"
-        mu_p, mu_s, rho_p, rho_s = mu_p_infer, mu_s_infer, rho_p_infer, rho_s_infer
-    end
-    if AIC_het - AIC_hom < -2
-        println("Heterogeneous-response model is selected")
-        println(m_het)
-        println("Mutation rate response-off cells = ", mu_off)
-        println("Mutation rate response-on cells = ", mu_on)
-        println("Fraction response-on subpopulation = ", f_on)
-        println("Relative mutation-rate increase = ", mu_on/mu_off)
-        println("Increase in population mean mutation rate = ", (mu_off*(1-f_on) + mu_on*f_on)/mu_off)
-    elseif AIC_het - AIC_hom > 2
-        println("Homogeneous-response model is selected")
-        println(m_hom)
-        println("Mutation rate permissive condition = ", mu_p)
-        println("Mutation rate stressful condition = ", mu_s)
-        println("Mutant fitness permissive condition = ", rho_p)
-        println("Mutant fitness stressful condition = ", rho_s)
-        println("Increase in population mean mutation rate = ", mu_s/mu_p)
-    else
-        println("No preferred model")
-        println("")
-        println("Heterogeneous-response model inferred parameters:")
-        println("Mutation rate response-off cells = ", mu_off)
-        println("Mutation rate response-on cells = ", mu_on)
-        println("Fraction response-on subpopulation = ", f_on)
-        println("Relative mutation-rate increase = ", mu_on/mu_off)
-        println("Increase in population mean mutation rate = ", (mu_off*(1-f_on) + mu_on*f_on)/mu_off)
-        println("")
-        println("Homogeneous-response model inferred parameters:")
-        println("Mutation rate permissive condition = ", mu_p)
-        println("Mutation rate stressful condition = ", mu_s)
-        println("Mutant fitness permissive condition = ", rho_p)
-        println("Mutant fitness stressful condition = ", rho_s)
-        println("Increase in population mean mutation rate = ", mu_s/mu_p)
-    end
 end
 
 # Mutation rate estimation algorithms (if the optimisation fails, AIC=Inf is returned)
@@ -314,7 +232,12 @@ function log_likelihood(mc_p::Vector{Int}, m_p, mc_s::Vector{Int}, m_s, fit_m)
     else
         p_p = P_mutant_count(maximum(mc_p), m_p, fit_m=fit_m)                                      # Mutant count distribution without stress
         p_s = P_mutant_count(maximum(mc_s), m_s, fit_m=fit_m) 
-        return sum(counts(mc_p, 0:maximum(mc_p)) .* log.(p_p)) + sum(counts(mc_s, 0:maximum(mc_s)) .* log.(p_s))  # The two observations are independent and their probabilities can be multiplied
+        ll = sum(counts(mc_p, 0:maximum(mc_p)) .* log.(p_p)) + sum(counts(mc_s, 0:maximum(mc_s)) .* log.(p_s))  # The two observations are independent and their probabilities can be multiplied
+        if !isnan(ll)
+            return ll
+        else 
+            return -Inf
+        end
     end
 end
 # Log-likelihood to observe a mutant count mc for a heterogeneous population with relative division rate of response-on cells 
@@ -335,7 +258,12 @@ function log_likelihood(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, m, mu_het
     else
         p_p = P_mutant_count(maximum(mc_p), m*N_ratio)                                                            # Mutant count distribution: permissive
         p_s = P_mutant_count(maximum(mc_s), m, mu_het, f_on, rel_div_on=rel_div_on)                               # Mutant count distribution: stress
-        return sum(counts(mc_p, 0:maximum(mc_p)) .* log.(p_p)) + sum(counts(mc_s, 0:maximum(mc_s)) .* log.(p_s))  # The two observations are independent and their probabilities can be multiplied
+        ll = sum(counts(mc_p, 0:maximum(mc_p)) .* log.(p_p)) + sum(counts(mc_s, 0:maximum(mc_s)) .* log.(p_s))  # The two observations are independent and their probabilities can be multiplied
+        if !isnan(ll)
+            return ll
+        else 
+            return -Inf
+        end
     end
 end
 
