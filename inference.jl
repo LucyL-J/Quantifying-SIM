@@ -3,8 +3,9 @@ using SpecialFunctions, Optim, StatsBase
 # The following recursive formulas for the pdf of the mutant count distribution are based on 
 # Keller, P., & Antal, T. (2015). Mutant number distribution in an exponentially growing population. Journal of Statistical Mechanics: Theory and Experiment, 2015(1), P01011. https://doi.org/10.1088/1742-5468/2015/01/P01011
 
-# Muntant count distribution for a homogeneous population with optional differential fitness of mutants
-function P_mutant_count(K::Int, m; fit_m=1.)    # Mutations per generation = mutation rate [1/h] / growth rate [1/h]
+# Muntant count distribution for a homogeneous population with optional differential fitness of mutants (set to =1 by default)
+# Returns probabilities to observe 0,...,K mutants
+function P_mutant_count(K::Int, m; fit_m=1.)    # Input parameters: Number of mutations during growth phase, mutant fitness
     p = zeros(Float64, K+1)
     if fit_m == 0.
         for k = 0:K
@@ -20,7 +21,7 @@ function P_mutant_count(K::Int, m; fit_m=1.)    # Mutations per generation = mut
             end
             if isnan(S)
                 for k = 0:K
-                    p[k+1] = m^k * exp(-m) / factorial(big(k))          # When the division rate is zero, the mutant count distribution is given by a Poisson distribution
+                    p[k+1] = m^k * exp(-m) / factorial(big(k))          # Very small division rates are approximated as =0
                 end
                 break
             end
@@ -46,8 +47,12 @@ function Q(K::Int, m, fit_m)
     return q
 end
 
-# Mutant count distribution for a heterogeneous population with response-off and -on subpopulation. The relative division rate of on cells is an optional input parameter with default value of zero
-# Mutation rates (for both response-off and -on cells) are given in mutations per division of response-off cells and scaled to be in units of mutations per generation
+# Mutant count distribution for a heterogeneous population with response-off and -on subpopulation.
+# Input parameters
+# m: Number of mutations arising in the response-off subpopulation
+# mu_het: Mutation-rate heterogeneity
+# f_on: Fraction of response-on subpopulation
+# rel_div_on: Relative division rate of response-on cells (compared to response-off cells). Optional input, set to =0 by default 
 function P_mutant_count(K::Int, m, mu_het, f_on; rel_div_on=0.)
     if rel_div_on == 0.
         p_off = P_mutant_count(K, m)

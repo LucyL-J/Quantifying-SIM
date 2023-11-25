@@ -38,9 +38,9 @@ estimate_mu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on; rel_div_
 
 The input parameters are
 * `mc_p`: Mutant counts under permissive condition (vector of integers)
-* `Nf_p`: Average final population size under permissive condition
+* `Nf_p`: Final population size under permissive condition
 * `mc_s`: Mutant counts under stressful condition (vector of integers)
-* `Nf_s`: Average final population size under stressful condition 
+* `Nf_s`: Final population size under stressful condition 
 
 Optional
 * `f_on`: Fraction of the response-on subpopulation (when known from a separate experimental measurement). Inferred if not given as an iput parameter.
@@ -62,12 +62,12 @@ Under permissive conditions, the mutant counts
 ```
 mc_p = [0, 9, 3, 11, 0, 0, 1, 0, 3, 5, 1, 1, 2, 0, 0, 1, 89, 0, 1, 1, 9, 0, 0, 0, 1, 1, 0, 0, 31, 3, 0, 10, 13, 0, 3, 3, 165, 2, 0, 1, 0, 0, 0, 2, 55, 11, 3, 5, 1, 34]
 ```
-and an average final population size of $10^8$ were observed. \
+and an Final population size of $10^8$ were observed. \
 Under stressful conditions, the mutant counts 
 ```
 mc_s = [2, 4, 0, 0, 0, 0, 0, 1, 2, 1, 0, 0, 2, 1, 0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 2, 1, 1, 1, 1, 0, 1, 2, 3, 0, 0, 0, 0, 0, 0, 2, 2, 4, 1, 0, 4, 0, 1, 0, 2, 0]
 ```
-and an average final population size of $1.6\cdot 10^7$ were observed. 
+and an Final population size of $1.6\cdot 10^7$ were observed. 
 
 #### Case 1: The fraction of the response-on subpopulation is unknown
 
@@ -84,7 +84,7 @@ yields the following output
    0.0
  406.0980895989688
 ```
-with an estimated mutation-rate increase of $\approx 177$-fold and fraction of the response-on subpopulation of $\approx 2.3 \%$. \
+with an estimated mutation-rate increase of $\approx 177$-fold, fraction of the response-on subpopulation of $\approx 2.3 \%$ and increase in population mean mutation rate of $\approx 5.1$-fold. \
 Instead of setting the relative division rate of response-on cells to zero, we can set it as an inference parameter
 ```
 res = estimate_mu_het(mc_p, 10^8, mc_s, 1.6*10^7, rel_div_on="infer")
@@ -98,7 +98,7 @@ yielding
    0.0809156313118107
  407.72583389687406
 ```
-i.e. an estimated mutation-rate increase of $\approx 158$-fold, fraction of response-on subpopulation of $\approx 2.5 \%$ and relative division rate of response-on cells of $\approx 0.08$. However, this model version fits the data less well, as it's AIC is higher.
+i.e. an estimated mutation-rate increase of $\approx 158$-fold, fraction of response-on subpopulation of $\approx 2.5 \%$, relative division rate of response-on cells of $\approx 0.08$ and increase in population mean mutation rate of $\approx 5.0$-fold. However, this model version fits the data less well, as it's AIC is higher.
 
 #### Case 2: An estimate of the fraction of the response-on subpopulation is available from a separate experiment
 
@@ -114,7 +114,7 @@ yields
    0.0
  404.0980895994152
 ```
-with an estimated mutation-rate increase of $\approx 80$-fold. \
+with an estimated mutation-rate increase of $\approx 80$-fold and increase in population mean mutation rate of $\approx 4.9$-fold. \
 Again, the relative division rate of response-on cells can be inferred via setting `rel_div_on="infer`.
 
 ### Estimation using the homogeneous-response model
@@ -128,9 +128,9 @@ estimate_mu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s; fit_m=1.)
 estimates population-wide mutation rates from fluctuation assay data. \
 The input parameters are
 * `mc_p`: Mutant counts under permissive condition (vector of integers)
-* `Nf_p`: Average final population size under permissive condition
+* `Nf_p`: Final population size under permissive condition
 * `mc_s`: Mutant counts under stressful condition (vector with integers)
-* `Nf_s`: Average final population size under stressful condition
+* `Nf_s`: Final population size under stressful condition
 
 Optionally, the mutant fitness `fit_m` can be set to a value measured in a separate experiment, set as a joint (constrained) inference parameter via `fit_m="joint"` or as two separate inference parameters (permissive/stressful condition) via `fit_m="infer"`. 
 
