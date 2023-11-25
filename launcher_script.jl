@@ -339,7 +339,7 @@ function data_inference_manuscript()
     # Parameter regime: relative division rate of response-on cells
     # Estimation methods
     # (i) Heterogeneous-response model with setting the relative division rate of response-on cells to zero/true value or inferring it (known fraction of response-on subpopulation)
-    # (ii) Heterogeneous-response model with setting the relative division rate of response-on cells to zero (unknown fraction of response-on subpopulation)
+    # (ii) Heterogeneous-response model with setting the relative division rate of response-on cells to zero or inferring it (unknown fraction of response-on subpopulation)
     # (iii) Homogeneous-response model without/with/jointly inferring the differential fitness of mutants
     for p in ["range_rel-div-on_inc-10", "range_rel-div-on_inc-100"]
         simulate_fluctuation_assays(p, set_seed=true)
