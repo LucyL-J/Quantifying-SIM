@@ -1,2 +1,0 @@
-number_cultures,expected_mutations,number_fluctuation_assays,initial_population_size,divisions_off,switchings,mutations_off,divisions_on,mutations_on,r_start,r_end,r_increment,range_parameter,random_seed
-50,1,100,1e4,1.,0.01,1e-8,0.,1e-6,-3.,-1.,0.1,switchings_log,4471018295817513658

@@ -168,7 +168,7 @@ end
 # Mutant count data for a heterogeneous population and a given number of cultures 
 # Optional: cell death of response-off and/or -on cells, differential fitness of response-off mutants and initial fraction of response-on subpopulation
 # Returns mutant counts, final population size and final fraction of response-on subpopulation 
-function mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures::Int; death_off=0., fitness_m_off=1., death_on=0., f0_on=switching/(division_off-death_off))
+function mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures::Int; death_off=0., fitness_m_off=1., death_on=0., f0_on=0.)
     mc = Vector{Int}(undef, num_cultures)
     for i = 1:num_cultures
         mc[i] = mutant_count(T, N0*(1-f0_on), division_off, death_off, fitness_m_off, mutation_off, switching, N0*f0_on, division_on, death_on, mutation_on)
