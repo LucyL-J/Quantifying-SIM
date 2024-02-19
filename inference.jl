@@ -407,6 +407,76 @@ function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Bool
     return est_res
 end
 
+# Model selection
+function estimu_select(mc_p, Nf_p, mc_s, Nf_s)
+    selected_m = zeros(Int, 3)
+    hom = [1, 2]
+    ABIC_hom = [Inf, Inf]
+    s_hom = Vector{Float64}(undef, 10)
+    hom_1 = estimu_hom(mc_p, Nf_p, mc_s, Nf_s)
+    hom_2 = estimu_hom(mc_p, Nf_p, mc_s, Nf_s, false)
+    hom_3 = estimu_hom(mc_p, Nf_p, mc_s, Nf_s, (false,false))
+    if hom_1[19] - hom_2[19] > chisq_1_95
+        if hom_2[19] - hom_3[19] > chisq_1_95
+            hom = [3, 4]
+            ABIC_hom = hom_3[20:21]
+            s_hom = CV(mc_p) .+ CV(mc_s)
+        else
+            hom = [2, 3]
+            ABIC_hom = hom_2[20:21]
+            s_hom = CV(mc_p, mc_s)
+        end
+    elseif hom_1[19] - hom_3[19] > chisq_2_95
+        hom = [3, 4]
+        ABIC_hom = hom_3[20:21]
+        s_hom = CV(mc_p) .+ CV(mc_s)
+    else
+        ABIC_hom = hom_1[20:21]
+        s_hom = CV(mc_p, 1.) .+ CV(mc_s, 1.)
+    end
+    het = [4, 2]
+    ABIC_het = [Inf, Inf]
+    s_het = Vector{Float64}(undef, 10)
+    het_4 = estimu_het(mc_p, Nf_p, mc_s, Nf_s, false)
+    het_5 = estimu_het(mc_p, Nf_p, mc_s, Nf_s, false, false)
+    if het_4[7] - het_5[22] > chisq_2_95
+        het = [5, 4]
+        ABIC_het = het_5[23:24]
+        s_het = CV(mc_p, mc_s, Nf_p/Nf_s, het_5[7], true)
+    else
+        ABIC_het = het_4[8:9]
+        s_het = CV(mc_p, mc_s, Nf_p/Nf_s)
+    end
+    if ABIC_het[1] - ABIC_hom[1] < -2
+        selected_m[1] = het[1]
+    elseif ABIC_het[1] - ABIC_hom[1] > 2
+        selected_m[1] = hom[1]
+    end
+    if ABIC_het[2] - ABIC_hom[2] < -2
+        selected_m[2] = het[1]
+    elseif ABIC_het[2] - ABIC_hom[2] > 2
+        selected_m[2] = hom[1]
+    end
+    if mean(s_het) < mean(s_hom)
+        if het[2] < hom[2] || mean(s_het) + std(s_het)*(1-cor(s_het,s_hom))^0.5 < mean(s_hom)
+            selected_m[3] = het[1]
+        elseif het[2] == hom[2] && mean(s_het) + std(s_het)*(1-cor(s_het,s_hom))^0.5 >= mean(s_hom)
+            selected_m[3] = 0
+        else
+            selected_m[3] = hom[1]
+        end
+    else
+        if hom[2] < het[2] || mean(s_hom) + std(s_hom)*(1-cor(s_het,s_hom))^0.5 < mean(s_het)
+            selected_m[3] = hom[1]
+        elseif hom[2] == het[2] && mean(s_hom) + std(s_hom)*(1-cor(s_het,s_hom))^0.5 >= mean(s_het)
+            selected_m[3] = 0
+        else
+            selected_m[3] = het[1]
+        end
+    end
+    return hom_1, hom_2, hom_3, het_4, het_5, [[hom[1], het[1]]; selected_m]
+end
+
 # Inference functions to calculate initial parameters for the joint ML estimation
 # Estimating the number of mutations for a homogeneous population with mutant fitness fit_m (inferred if = false)
 function estimate_init_hom(mc::Vector{Int}, fit_m::Float64=1.)              # Mutant fitness given (default = 1)
