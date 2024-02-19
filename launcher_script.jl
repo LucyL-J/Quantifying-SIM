@@ -237,21 +237,19 @@ function data_inference_manuscript()
     # Parameter regime: mutation-rate increase x relative switching rate
     # Estimation method: heterogeneous-response model with setting the relative division rate of response-on cells to zero (known fraction of response-on subpopulation)
     simulate_fluctuation_assays("range-nu_on", "range-alpha-f0", set_seed=true)
-    infer_mutation_rates("range_mu-inc", "het_zero_div", "range_switching")
+    infer_mutation_rates("range-nu_on", "het_zero-div", [50,20,10], "range-alpha-f0", conf=true)
 
     # Parameter regime: death rate of response-off x -on cells, for switching rates 0.01 and 0.05
     # Estimation method: heterogeneous-response model with setting the relative division rate of response-on cells to zero (known fraction of response-on subpopulation)
     for i in [1, 5]
-        for j in ["_off", "_on", ""]
-            simulate_fluctuation_assays("range-delta"*j*"-alpha$i", set_seed=true)
-            infer_mutation_rates("range_death-off_switch-$i", "het_zero_div", "range_death-on_switch-$i")
-        end
+        simulate_fluctuation_assays("range-delta_off-alpha$i", "range-delta_on-alpha$i", set_seed=true)
+        infer_mutation_rates("range-delta_off-alpha$i", "het_zero-div", [50], "range-delta_on-alpha$i")
     end
 
     # Parameter regime: differential fitness of response-off mutants
     # Estimation method: heterogeneous-response model with setting the relative division rate of response-on cells to zero (known fraction of response-on subpopulation)
-    simulate_fluctuation_assays("range-mu_off", "range-rho", set_seed=true)
-    infer_mutation_rates("range_fit-mut", "het_zero_div")
+    simulate_fluctuation_assays("range-rho", set_seed=true)
+    infer_mutation_rates("range-rho", "het_zero-div", [50])
 
     # Parameter regime: relative division rate of response-on cells
     # Estimation methods
@@ -260,16 +258,25 @@ function data_inference_manuscript()
     # (iii) Homogeneous-response model without/with/jointly inferring the differential fitness of mutants
     for i in [10, 100]
         simulate_fluctuation_assays("range-gamma_on-increase$i", set_seed=true)
-        for m in ["het_zero_div", "het_set_div", "het_infer_div", "het_unknown_fraction", "het_unknown_fraction_infer_div", "hom_no_fit", "hom_infer_fit", "hom_joint_fit"]
-            infer_mutation_rates(p, m)
-        end
+        infer_mutation_rates("range-gamma_on-increase$i", "model_selection", [50])
+    end
+    for mod in ["het_zero-div", "het_set-div", "het_infer-div"]
+        infer_mutation_rates("range-gamma_on-increase100", mod, [50], conf=true)
+    end
+
+    # Parameter regime: mutation rate of response-off cells x differential fitness of response-off mutants (homogeneous response)
+    # (i) Heterogeneous-response model with setting the relative division rate of response-on cells to zero or inferring it (unknown fraction of response-on subpopulation)
+    # (ii) Homogeneous-response model without/with/jointly inferring the differential fitness of mutants
+    for i in ["", "_unconstr"]
+        simulate_fluctuation_assays("range-nu_off_s", "range-rho"*i, set_seed=true)
+        infer_mutation_rates("range-nu_off_s", "model_selection", [50], "range-rho"*i)
     end
 end
 
 function data_supplementary_material()
     # Parameter regime: switching rate x relative division rate of response-on cells
     # Simulating response-on non-mutants stochastically to test assumption S1
-    for j in ["f0", "fstat"]
-        simulate_fluctuation_assays("range-gamma_on-increase100", "range-alpha-"*j, set_seed=true, S1=true)
+    for f in ["f0", "fstat"]
+        simulate_fluctuation_assays("range-gamma_on-increase100", "range-alpha-"*f, set_seed=true, S1=true)
     end
 end
