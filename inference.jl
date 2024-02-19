@@ -77,7 +77,7 @@ function pdf_mudi(K::Int, m, mu_het, f_on, rel_div_on)
         return p
     end
 end
-pdf_mudi(K::Int, m, mu_het, zero_div::Bool) = pdf_mudi(K, m, mu_het, 1., 0.)
+pdf_mudi(K::Int, m, mu_het, zero_div::Bool) = pdf_mudi(K, m, mu_het, 0.5, 0.)
 
 # Mutation rate estimation algorithms 
 # Return maximum likelihood estimates, confidence intervals, and AIC/BIC value (if the optimisation fails, Inf is returned)
@@ -90,7 +90,7 @@ pdf_mudi(K::Int, m, mu_het, zero_div::Bool) = pdf_mudi(K, m, mu_het, 1., 0.)
 # fit_m: Mutant fitness
 #        By default fit_m=1 but can be set to different value if known from separate experiment
 #        Alternatively, mutant fitness is inferred if fit_m=false
-function estimu_hom(mc::Vector{Int}, Nf, fit_m::Float64=1.)
+function estimu_hom(mc::Vector{Int}, Nf, fit_m::Float64=1.; conf=false)
 	est_res = zeros(Float64, 9)
     est_res[4:6] = [fit_m, fit_m, fit_m]                                                                  
 	log_likelihood_para_1(para) = -log_likelihood(mc, para, fit_m)                   # 1 inference parameter: Number of mutations
@@ -100,14 +100,16 @@ function estimu_hom(mc::Vector{Int}, Nf, fit_m::Float64=1.)
         est_res[7] = Optim.minimum(res)
         est_res[8] = 2*Optim.minimum(res) + 2
         est_res[9] = 2*Optim.minimum(res) + log(length(mc))
-        b = CI(mc, Optim.minimizer(res), fit_m, Optim.minimum(res))
-		est_res[2:3] = b./Nf                        
+        if conf
+            b = CI(mc, Optim.minimizer(res), fit_m, Optim.minimum(res))    
+		    est_res[2:3] = b./Nf
+        end
 	else                                                      
 		est_res[7:9] = [Inf,Inf,Inf]
 	end 
 	return est_res
 end 
-function estimu_hom(mc::Vector{Int}, Nf, fit_m::Bool)                                   # Mutant fitness not given -> inferred 
+function estimu_hom(mc::Vector{Int}, Nf, fit_m::Bool; conf=false)                                   # Mutant fitness not given -> inferred 
 	est_res = zeros(Float64, 9)                                                         
 	log_likelihood_para_2(para) = -log_likelihood(mc, para[1], para[2])                 # 2 inference parameters: Number of mutations, mutant fitness
 	res = Optim.optimize(log_likelihood_para_2, [initial_m(mc, 1000), 1.]) 
@@ -118,9 +120,11 @@ function estimu_hom(mc::Vector{Int}, Nf, fit_m::Bool)                           
         est_res[7] = Optim.minimum(res)
         est_res[8] = 2*Optim.minimum(res) + 4
         est_res[9] = 2*Optim.minimum(res) + 2*log(length(mc))                   
-        b = CI(mc, p[1], p[2], true, Optim.minimum(res))
-        est_res[2:3] = b[1,:]./Nf
-        est_res[5:6] = b[2,:]                                 
+        if conf
+            b = CI(mc, p[1], p[2], true, Optim.minimum(res))
+            est_res[2:3] = b[1,:]./Nf
+            est_res[5:6] = b[2,:]
+        end
 	else
 		est_res[7:9] = [Inf,Inf,Inf]
 	end
@@ -138,10 +142,10 @@ end
 #        Alternatively, can be set as inference parameter(s) via fit_m=false
 #        If only one value is given, mutant fitness is constrained to be equal under permissive/stressful cond.
 #        To not constrain mutant fitness, values have to be given as a tuple (mutant fitness permissive cond., mutant fitness stressful cond.)
-function estimu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, fit_m::Float64=1.)    # Mutant fitness set to input
+function estimu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, fit_m::Float64=1.; conf=false)    # Mutant fitness set to input
     est_res = zeros(Float64, 21)
-	est_res_p = estimu_hom(mc_p, Nf_p, fit_m)     # Estimation for permissive cond.
-	est_res_s = estimu_hom(mc_s, Nf_s, fit_m)     # Estimation for stressful cond.
+	est_res_p = estimu_hom(mc_p, Nf_p, fit_m, conf=conf)     # Estimation for permissive cond.
+	est_res_s = estimu_hom(mc_s, Nf_s, fit_m, conf=conf)     # Estimation for stressful cond.
     est_res[1:12] = [est_res_p[1:6]; est_res_s[1:6]]
 	if est_res_p[end] != Inf && est_res_s[end] != Inf
         est_res[13:15] = est_res_s[1:3] ./ [est_res_p[1], est_res_p[3], est_res_p[2]]
@@ -153,7 +157,7 @@ function estimu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, fit_m::Flo
     end                                      
 	return est_res
 end
-function estimu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, fit_m::Bool)          # Mutant fitness not given -> inferred (as constrained parameter)
+function estimu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, fit_m::Bool; conf=false)          # Mutant fitness not given -> inferred (as constrained parameter)
 	est_res = zeros(Float64, 21)
 	m_p, rho = estimate_init_hom(mc_p, false)                                                   
 	m_s = estimate_init_hom(mc_s)                                                                    
@@ -170,26 +174,28 @@ function estimu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, fit_m::Boo
         est_res[19] = Optim.minimum(res)
         est_res[20] = 2*Optim.minimum(res) + 6
         est_res[21] = 2*Optim.minimum(res) + 3*log(length(mc_p)+length(mc_s))    
-        b = CI(mc_p, p[1], mc_s, p[2], p[3], true, Optim.minimum(res))  
-        est_res[2:3] = b[1,:]./Nf_p
-        est_res[5:6] = b[3,:]
-        est_res[8:9] = b[2,:]./Nf_s  
-        est_res[11:12] = b[3,:]
-        est_res[14:15] = b[4,:].*(Nf_p/Nf_s)    
+        if conf
+            b = CI(mc_p, p[1], mc_s, p[2], p[3], true, Optim.minimum(res))  
+            est_res[2:3] = b[1,:]./Nf_p
+            est_res[5:6] = b[3,:]
+            est_res[8:9] = b[2,:]./Nf_s  
+            est_res[11:12] = b[3,:]
+            est_res[14:15] = b[4,:].*(Nf_p/Nf_s)
+        end   
 	else
 		est_res[19:21] = [Inf,Inf,Inf]
 	end
 	return est_res
 end
-function estimu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, fit_m::Tuple{<:Number,<:Number}) # Mutant fitness not constrained 
+function estimu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, fit_m::Tuple{<:Number,<:Number}; conf=false) # Mutant fitness not constrained 
     if typeof(fit_m[1]) == Float64 && fit_m[1] == fit_m[2]
 		return estimu_hom(mc_p, Nf_p, mc_s, Nf_s, fit_m[1])
 	else
         est_res = Vector{Float64}(undef, 21)
 		fit_m_p = fit_m[1]
         fit_m_s = fit_m[2]
-		est_res_p = estimu_hom(mc_p, Nf_p, fit_m_p)             # Estimation permissive cond.
-		est_res_s = estimu_hom(mc_s, Nf_s, fit_m_s)             # Estimation stressful cond.
+		est_res_p = estimu_hom(mc_p, Nf_p, fit_m_p, conf=conf)             # Estimation permissive cond.
+		est_res_s = estimu_hom(mc_s, Nf_s, fit_m_s, conf=conf)             # Estimation stressful cond.
         est_res[1:12] = [est_res_p[1:6]; est_res_s[1:6]]
         if est_res_p[end] != Inf && est_res_s[end] != Inf       # Estimation under both conditions successful
             est_res[13:15] = est_res_s[1:3] ./ [est_res_p[1], est_res_p[3], est_res_p[2]]
@@ -197,17 +203,17 @@ function estimu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, fit_m::Tup
             est_res[19:20] = est_res_p[7:8] .+ est_res_s[7:8]
             est_res[21] = 2*(est_res_p[7]+est_res_s[7]) + (2+sum([typeof(fit_m_p),typeof(fit_m_s)].==Bool))*log(length(mc_p)+length(mc_s))
         elseif est_res_p[end] != Inf && typeof(fit_m_s) == Bool # Estimation under stressful cond. failed -> set mutant fitness under stressful cond. to one
-            est_res_s = estimu_hom(mc_s, Nf_s)
+            est_res_s = estimu_hom(mc_s, Nf_s, conf=conf)
             if est_res_s[end] != Inf
             est_res[7:12] = est_res_s[1:6]
             est_res[13:15] = est_res_s[1:3] ./ [est_res_p[1], est_res_p[3], est_res_p[2]]
             est_res[16:18] = est_res_s[4:6] ./ [est_res_p[4], est_res_p[6], est_res_p[5]]
             est_res[19] = est_res_p[7] + est_res_s[7] 
             est_res[20] = est_res_p[8] + est_res_s[8] + 2
-            est_res[21] = 2*(est_res_p[7]+est_res_s[7]) + (3+(typeof(fitm_p)==Bool))*log(length(mc_p)+length(mc_s))
+            est_res[21] = 2*(est_res_p[7]+est_res_s[7]) + (3+(typeof(fit_m_p)==Bool))*log(length(mc_p)+length(mc_s))
             end
         elseif est_res_s[end] != Inf && typeof(fit_m_p) == Bool # Estimation under permissive cond. failed -> set mutant fitness under permissive cond. to one
-            est_res_p = estimu_hom(mc_p, Nf_p)
+            est_res_p = estimu_hom(mc_p, Nf_p, conf=conf)
             if est_res_p[end] != Inf 
                 est_res[1:6] = est_res_p[1:6]
                 est_res[13:15] = est_res_s[1:3] ./ [est_res_p[1], est_res_p[3], est_res_p[2]]
@@ -233,7 +239,7 @@ end
 # rel_div_on: Relative division rate of on-cells compared to off-cells
 #             By default set to rel_div_on=0., inferred if rel_div_on=false
 #             For rel_div_on=0, the fraction of on-cells cannot be inferred
-function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Float64, rel_div_on::Float64=0.) # Fraction and relative division rate of on-cells given
+function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Float64, rel_div_on::Float64=0.; conf=false) # Fraction and relative division rate of on-cells given
     est_res = zeros(Float64, 24)	
 	m = estimate_init_hom(mc_p)*Nf_s/Nf_p                       # Initial value for optimisation   
     mu_het, div_init = estimate_init_het(mc_s, m, f_on, rel_div_on)                       
@@ -251,18 +257,20 @@ function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Floa
         est_res[22] = Optim.minimum(res) 
         est_res[23] = 2*Optim.minimum(res) + 4
         est_res[24] = 2*Optim.minimum(res) + 2*log(length(mc_p)+length(mc_s))
-        b = CI(mc_p, mc_s, Nf_p/Nf_s, p[1], p[2], f_on, rel_div_on, Optim.minimum(res))
-        est_res[2:3] = b[1,:]./Nf_s
-        est_res[5:6] = b[2,:]
-        est_res[14:15] = b[3,:]./Nf_s
-        est_res[17:18] = b[2,:].*((1-f_on)/f_on)
-        est_res[20:21] = (1-f_on).*(1 .+b[2,:])                                                        
+        if conf
+            b = CI(mc_p, mc_s, Nf_p/Nf_s, p[1], p[2], f_on, rel_div_on, Optim.minimum(res))
+            est_res[2:3] = b[1,:]./Nf_s
+            est_res[5:6] = b[2,:]
+            est_res[14:15] = b[3,:]./Nf_s
+            est_res[17:18] = b[2,:].*((1-f_on)/f_on)
+            est_res[20:21] = (1-f_on).*(1 .+b[2,:])
+        end                                                        
     else
         est_res[22:24] = [Inf,Inf,Inf]
     end   
     return est_res 
 end
-function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Float64, rel_div_on::Bool)    # Relative division rate on-cells not given -> inferred
+function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Float64, rel_div_on::Bool; conf=false)    # Relative division rate on-cells not given -> inferred
     est_res = zeros(Float64, 24)	
 	m = estimate_init_hom(mc_p)*Nf_s/Nf_p  
     mu_het, rel_div_on = estimate_init_het(mc_s, m, f_on)
@@ -280,19 +288,21 @@ function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Floa
         est_res[22] = Optim.minimum(res) 
         est_res[23] = 2*Optim.minimum(res) + 6
         est_res[24] = 2*Optim.minimum(res) + 3*log(length(mc_p)+length(mc_s))
-        b = CI(mc_p, mc_s, Nf_p/Nf_s, p[1], p[2], f_on, p[3], true, Optim.minimum(res))
-        est_res[2:3] = b[1,:]./Nf_s
-        est_res[5:6] = b[2,:]
-        est_res[11:12] = b[3,:]
-        est_res[14:15] = b[4,:]./Nf_s
-        est_res[17:18] = b[2,:].*((1-f_on)/f_on)
-        est_res[20:21] = (1-f_on).*(1 .+b[2,:])                                                             
+        if conf
+            b = CI(mc_p, mc_s, Nf_p/Nf_s, p[1], p[2], f_on, p[3], true, Optim.minimum(res))
+            est_res[2:3] = b[1,:]./Nf_s
+            est_res[5:6] = b[2,:]
+            est_res[11:12] = b[3,:]
+            est_res[14:15] = b[4,:]./Nf_s
+            est_res[17:18] = b[2,:].*((1-f_on)/f_on)
+            est_res[20:21] = (1-f_on).*(1 .+b[2,:])
+        end
     else
         est_res[22:24] = [Inf,Inf,Inf]
     end
     return est_res
 end
-function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Bool, rel_div_on::Float64=0.)   # Fraction of on-cells not given
+function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Bool, rel_div_on::Float64=0.; conf=false)   # Fraction of on-cells not given
     m = estimate_init_hom(mc_p)*Nf_s/Nf_p 
     if rel_div_on == 0.                                                                                     # Zero relative division rate on-cells -> Fraction of on-cells cannot be inferred   
         est_res = zeros(Float64, 9)
@@ -305,9 +315,11 @@ function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Bool
             est_res[7] = Optim.minimum(res)
             est_res[8] = 2*Optim.minimum(res) + 4
             est_res[9] = 2*Optim.minimum(res) + 2*log(length(mc_p)+length(mc_s))
-            b = CI(mc_p, mc_s, Nf_p/Nf_s, p[1], p[2], Optim.minimum(res))
-            est_res[2:3] = b[1,:]./Nf_s
-            est_res[5:6] = b[2,:]                                                            
+            if conf
+                b = CI(mc_p, mc_s, Nf_p/Nf_s, p[1], p[2], Optim.minimum(res))
+                est_res[2:3] = b[1,:]./Nf_s
+                est_res[5:6] = b[2,:]
+            end                                                            
         else
             est_res[7:9] = [Inf,Inf,Inf]
         end
@@ -337,20 +349,22 @@ function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Bool
             est_res[22] = Optim.minimum(res) 
             est_res[23] = 2*Optim.minimum(res) + 6
             est_res[24] = 2*Optim.minimum(res) + 3*log(length(mc_p)+length(mc_s))
-            b = CI(mc_p, mc_s, Nf_p/Nf_s, p[1], p[2], p[3], rel_div_on, false, Optim.minimum(res))
-            est_res[2:3] = b[1,:]./Nf_s
-            est_res[5:6] = b[2,:]
-            est_res[8:9] = b[3,:]
-            est_res[14:15] = b[4,:]./Nf_s
-            est_res[17:18] = b[5,:]
-            est_res[20:21] = b[6,:]                                                            
+            if conf
+                b = CI(mc_p, mc_s, Nf_p/Nf_s, p[1], p[2], p[3], rel_div_on, false, Optim.minimum(res))
+                est_res[2:3] = b[1,:]./Nf_s
+                est_res[5:6] = b[2,:]
+                est_res[8:9] = b[3,:]
+                est_res[14:15] = b[4,:]./Nf_s
+                est_res[17:18] = b[5,:]
+                est_res[20:21] = b[6,:]
+            end                                                           
         else
             est_res[22:24] = [Inf,Inf,Inf]
         end   
     end
     return est_res 
 end
-function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Bool, rel_div_on::Bool)    # Relative division rate on-cells and fraction of on-cells not given -> inferred
+function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Bool, rel_div_on::Bool; conf=false)    # Relative division rate on-cells and fraction of on-cells not given -> inferred
     est_res = zeros(Float64, 24)
     m = estimate_init_hom(mc_p)*Nf_s/Nf_p    
     mu_het, rel_div_on = estimate_init_het(mc_s, m, 0.)                                   
@@ -377,14 +391,16 @@ function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Bool
         est_res[22] = Optim.minimum(res) 
         est_res[23] = 2*Optim.minimum(res) + 8
         est_res[24] = 2*Optim.minimum(res) + 4*log(length(mc_p)+length(mc_s))
-        b = CI(mc_p, mc_s, Nf_p/Nf_s, p[1], p[2], p[3], p[4], true, true, Optim.minimum(res))
-        est_res[2:3] = b[1,:]./Nf_s
-        est_res[5:6] = b[2,:]
-        est_res[8:9] = b[3,:]
-        est_res[11:12] = b[4,:]
-        est_res[14:15] = b[5,:]./Nf_s
-        est_res[17:18] = b[6,:]
-        est_res[20:21] = b[7,:] 
+        if conf
+            b = CI(mc_p, mc_s, Nf_p/Nf_s, p[1], p[2], p[3], p[4], true, true, Optim.minimum(res))
+            est_res[2:3] = b[1,:]./Nf_s
+            est_res[5:6] = b[2,:]
+            est_res[8:9] = b[3,:]
+            est_res[11:12] = b[4,:]
+            est_res[14:15] = b[5,:]./Nf_s
+            est_res[17:18] = b[6,:]
+            est_res[20:21] = b[7,:]
+        end
     else
         est_res[22:24] = [Inf,Inf,Inf]
     end
