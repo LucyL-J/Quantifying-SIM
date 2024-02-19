@@ -103,7 +103,7 @@ function simulate_fluctuation_assays(range, range_2=""; set_seed=false, S1=false
                 n_tf[:,"$j"] = n[:,2]
             else
                 T = t_expected_m(N0*(1-f0_on), division_off-switching-death_off, mutation_off_s, switching, N0*f0_on, division_on, mutation_on, expected_M)
-                mc, Nf, f_on = mutant_count(T, N0, division_off, mutation_off_s, switching, division_on, mutation_on, num_cultures, fitness_m_off=fitness_m, death_off=death_off, death_on=death_on, f0_on=f0_on)
+                mc, Nf, f_on = mutant_count(T, N0, division_off, mutation_off_s, switching, division_on, mutation_on, num_cultures, fitness_m_off=fitness_m_s, death_off=death_off, death_on=death_on, f0_on=f0_on)
                 mutant_counts[:,"$j"] = mc
                 p_final[:,"$j"] = [Nf, f_on, T]
             end
@@ -115,7 +115,7 @@ function simulate_fluctuation_assays(range, range_2=""; set_seed=false, S1=false
             j2 += 1
         else
             T_p = t_expected_m(N0, division_off, mutation_off_p, 0., 0, 0., 0., expected_M)
-            mc_p, Nf_p = mutant_count(T_p, N0, division_off, mutation_off_p, num_cultures, fitness_m=fitness_m)
+            mc_p, Nf_p = mutant_count(T_p, N0, division_off, mutation_off_p, num_cultures, fitness_m=fitness_m_p)
             mutant_counts.p = mc_p
             p_final.p = [Nf_p, 0., T_p]
             if range_2 == "" 
