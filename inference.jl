@@ -1048,6 +1048,167 @@ function CI(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, m, mu_het, f_on, rel_
     return [l_1 u_1; l_2 u_2; l_3 u_3; l_4 u_4; minimum(m_on) maximum(m_on); minimum(mu_inc) maximum(mu_inc); minimum(del_mu) maximum(del_mu)]
 end
 
+function CV(mc::Vector{Int}, fit_m)
+	mc_9010 = copy(mc)
+    scores = zeros(Float64, 10)
+    n = Int(length(mc)/10)
+    for i = 1:10
+        c = mc_9010[1:n]
+        deleteat!(mc_9010, 1:n) 
+        log_likelihood_para(para) = -log_likelihood(mc_9010, para[1], fit_m)
+	    res = Optim.optimize(log_likelihood_para, [initial_m(mc_9010, 1000)])
+	    if Optim.converged(res) == true
+            scores[i] = -log_likelihood(c, Optim.minimizer(res)[1], fit_m)                                                                            
+	    end 
+        mc_9010 = [mc_9010; c]
+	end
+    return scores
+end 
+function CV(mc::Vector{Int})
+    mc_9010 = copy(mc)
+	scores = zeros(Float64, 10)
+    n = Int(length(mc)/10)
+    for i = 1:10
+        c = mc_9010[1:n]
+        deleteat!(mc_9010, 1:n)                                                     
+	    log_likelihood_para(para) = -log_likelihood(mc_9010, para[1], para[2])              
+	    res = Optim.optimize(log_likelihood_para, [initial_m(mc_9010, 1000), 1.]) 
+	    if Optim.converged(res) == true
+		    p = Optim.minimizer(res)
+            scores[i] = -log_likelihood(c, p[1], p[2])                         
+        end
+        mc_9010 = [mc_9010; c]
+	end
+	return scores                                                        
+end
+function CV(mc_p::Vector{Int}, mc_s::Vector{Int})
+	mc_p_9010 = copy(mc_p)
+    mc_s_9010 = copy(mc_s)
+	scores = zeros(Float64, 10)
+    n_p = Int(length(mc_p)/10)
+    n_s = Int(length(mc_s)/10)
+    for i = 1:10
+        c_p = mc_p_9010[1:n_p]
+        c_s = mc_s_9010[1:n_s]
+        deleteat!(mc_p_9010, 1:n_p)        
+        deleteat!(mc_s_9010, 1:n_s)                                                          
+	    log_likelihood_para(para) = -log_likelihood(mc_p_9010, para[1], mc_s_9010, para[2], para[3])
+	    res = Optim.optimize(log_likelihood_para, [1., 1., 1.])                                      
+	    if Optim.converged(res) == true
+		    p = Optim.minimizer(res)
+            scores[i] = -log_likelihood(c_p, p[1], c_s, p[2], p[3])
+        end    
+        mc_p_9010 = [mc_p_9010; c_p]
+        mc_s_9010 = [mc_s_9010; c_s]
+    end
+	return scores
+end
+function CV(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, f_on, rel_div_on)
+	mc_p_9010 = copy(mc_p)
+    mc_s_9010 = copy(mc_s)
+	scores = zeros(Float64, 10)
+    n_p = Int(length(mc_p)/10)
+    n_s = Int(length(mc_s)/10)
+    for i = 1:10
+        c_p = mc_p_9010[1:n_p]
+        c_s = mc_s_9010[1:n_s]
+        deleteat!(mc_p_9010, 1:n_p)        
+        deleteat!(mc_s_9010, 1:n_s)
+        log_likelihood_para(para) = -log_likelihood(mc_p_9010, mc_s_9010, N_ratio, para[1], para[2], f_on, rel_div_on)
+        res = Optim.optimize(log_likelihood_para, [1., 1.])                                                 
+        if Optim.converged(res) == true
+            p = Optim.minimizer(res)
+            scores[i] = -log_likelihood(c_p, c_s, N_ratio, p[1], p[2], f_on, rel_div_on)
+        end
+        mc_p_9010 = [mc_p_9010; c_p]
+        mc_s_9010 = [mc_s_9010; c_s]
+    end
+    return scores
+end
+function CV(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, f_on, rel_div_on, infer_r_f::Bool)
+    mc_p_9010 = copy(mc_p)
+    mc_s_9010 = copy(mc_s)
+	scores = zeros(Float64, 10)
+    n_p = Int(length(mc_p)/10)
+    n_s = Int(length(mc_s)/10)
+    if infer_r_f == true
+        for i = 1:10
+            c_p = mc_p_9010[1:n_p]
+            c_s = mc_s_9010[1:n_s]
+            deleteat!(mc_p_9010, 1:n_p)        
+            deleteat!(mc_s_9010, 1:n_s) 
+            log_likelihood_para_r(para) = -log_likelihood(mc_p_9010, mc_s_9010, N_ratio, para[1], para[2], f_on, para[3])
+            res = Optim.optimize(log_likelihood_para_rp, [1., 1., rel_div_on])                                                 
+            if Optim.converged(res) == true
+                p = Optim.minimizer(res)
+                scores[i] = -log_likelihood(c_p, c_s, N_ratio, p[1], p[2], f_on, p[3])
+            end
+            mc_p_9010 = [mc_p_9010; c_p]
+            mc_s_9010 = [mc_s_9010; c_s]
+        end
+    else
+        for i = 1:10
+            c_p = mc_p_9010[1:n_p]
+            c_s = mc_s_9010[1:n_s]
+            deleteat!(mc_p_9010, 1:n_p)        
+            deleteat!(mc_s_9010, 1:n_s) 
+            log_likelihood_para_f(para) = -log_likelihood(mc_p_9010, mc_s_9010, N_ratio, para[1], para[2], para[3], rel_div_on)
+            res = Optim.optimize(log_likelihood_para_f, [1., 1., f_on])                                                 
+            if Optim.converged(res) == true
+                p = Optim.minimizer(res)
+                scores[i] = -log_likelihood(c_p, c_s, N_ratio, p[1], p[2], p[3], rel_div_on)
+            end
+            mc_p_9010 = [mc_p_9010; c_p]
+            mc_s_9010 = [mc_s_9010; c_s]
+        end
+    end
+    return scores
+end
+function CV(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio)
+    mc_p_9010 = copy(mc_p)
+    mc_s_9010 = copy(mc_s)
+    scores = zeros(Float64, 10)
+    n_p = Int(length(mc_p)/10)
+    n_s = Int(length(mc_s)/10)
+    for i = 1:10
+        c_p = mc_p_9010[1:n_p]
+        c_s = mc_s_9010[1:n_s]
+        deleteat!(mc_p_9010, 1:n_p)        
+        deleteat!(mc_s_9010, 1:n_s)     
+        log_likelihood_para(para) = -log_likelihood(mc_p_9010, mc_s_9010, N_ratio, para[1], para[2])     
+        res = Optim.optimize(log_likelihood_para, [1., 1.])                     
+        if Optim.converged(res) == true
+            p = Optim.minimizer(res)
+            scores[i] = -log_likelihood(c_p, c_s, N_ratio, p[1], p[2]) 
+        end
+        mc_p_9010 = [mc_p_9010; c_p]
+        mc_s_9010 = [mc_s_9010; c_s]
+    end
+    return scores
+end
+function CV(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, f_on, infer_r_f::Bool)
+    mc_p_9010 = copy(mc_p)
+    mc_s_9010 = copy(mc_s)
+    scores = zeros(Float64, 10)
+    n_p = Int(length(mc_p)/10)
+    n_s = Int(length(mc_s)/10)
+    for i = 1:10
+        c_p = mc_p_9010[1:n_p]
+        c_s = mc_s_9010[1:n_s]
+        deleteat!(mc_p_9010, 1:n_p)        
+        deleteat!(mc_s_9010, 1:n_s)  
+        log_likelihood_para(para) = -log_likelihood(mc_p_9010, mc_s_9010, N_ratio, para[1], para[2], para[3], para[4])
+        res = Optim.optimize(log_likelihood_para, [1., 1., f_on, 0.])                                                 
+        if Optim.converged(res) == true
+            p = Optim.minimizer(res)
+            scores[i] = -log_likelihood(c_p, c_s, N_ratio, p[1], p[2], p[3], p[4])
+        end
+        mc_p_9010 = [mc_p_9010; c_p]
+        mc_s_9010 = [mc_s_9010; c_s]
+    end
+    return scores
+end
+
 # Probability generating function method used to set initial values of the maximum likelihood estimation, based on
 # Gillet-Markowska, A., Louvel, G., & Fischer, G. (2015). bz-rates: A web tool to estimate mutation rates from fluctuation analysis. G3: Genes, Genomes, Genetics, 5(11), 2323–2327. https://doi.org/10.1534/g3.115.019836
 function empirical_pgf(z, x) # Empirical probability generating function calculated from observed data
