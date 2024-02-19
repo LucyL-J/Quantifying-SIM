@@ -561,7 +561,7 @@ function CI(mc::Vector{Int}, m, fit_m, infer_fit_m::Bool, ML)
             return -0.5*chisq_95
         else
             log_likelihood_2(P) = -log_likelihood(mc, P[1], para)
-            res = Optim.optimize(log_likelihood_2, 0., [m])
+            res = Optim.optimize(log_likelihood_2, [m])
             P1 = Optim.minimizer(res)[1]
             return -log_likelihood(mc, P1, para) - ML - 0.5*chisq_95
         end
@@ -689,7 +689,7 @@ function CI(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, m, mu_het, f_on, rel_
             return -0.5*chisq_95
         else
             log_likelihood_1(P) = -log_likelihood(mc_p, mc_s, N_ratio, para, P[1], f_on, rel_div_on)
-            res = Optim.optimize(log_likelihood_1, 0., [mu_het])
+            res = Optim.optimize(log_likelihood_1, [mu_het])
             P1 = Optim.minimizer(res)[1]
             return -log_likelihood(mc_p, mc_s, N_ratio, para, P1, f_on, rel_div_on) - ML - 0.5*chisq_95
         end
@@ -705,7 +705,7 @@ function CI(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, m, mu_het, f_on, rel_
         u_1 = find_zero(log_likelihood_ratio_1, (m, 10*maximum([mc_p; mc_s])))
     end
     u_1_P(P) = -log_likelihood(mc_p, mc_s, N_ratio, u_1, P[1], f_on, rel_div_on)
-    res = Optim.optimize(u_1_P, [m])
+    res = Optim.optimize(u_1_P, [mu_het])
     m_on[2] = Optim.minimizer(res)[1]*u_1*(1-f_on)/f_on
     function log_likelihood_ratio_2(para)
         if para == mu_het
