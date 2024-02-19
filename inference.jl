@@ -518,15 +518,16 @@ function log_likelihood(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, m, mu_het
 end
 
 # Profile log-likelihood to calculate confidence intervals
-# The 95% quantile of the Chi-squared distribution used to calculate CIs
+# The 95% quantile of the Chi-squared distribution (with 1,2 degrees of freedom) used to calculate CIs
 # Depend on the observed mutant counts, on which parameters are estimated, the ML estimates and the maximum likelihood itself 
-chisq_95 = 3.84145882069412447634704221854917705059051513671875
+chisq_1_95 = 3.84145882069412447634704221854917705059051513671875
+chisq_2_95 = 5.99146454710797993215010137646459043025970458984375
 function CI(mc::Vector{Int}, m, fit_m, ML)
     function log_likelihood_ratio_1(para) 
         if para == m
-            return -0.5*chisq_95
+            return -0.5*chisq_1_95
         else
-            return -log_likelihood(mc, para, fit_m) - ML - 0.5*chisq_95
+            return -log_likelihood(mc, para, fit_m) - ML - 0.5*chisq_1_95
         end
     end
     l_1 = find_zero(log_likelihood_ratio_1, (0., m))
@@ -541,12 +542,12 @@ end
 function CI(mc::Vector{Int}, m, fit_m, infer_fit_m::Bool, ML)
     function log_likelihood_ratio_1(para)
         if para == m
-            return -0.5*chisq_95
+            return -0.5*chisq_1_95
         else
             log_likelihood_1(P) = -log_likelihood(mc, para, P[1])
             res = Optim.optimize(log_likelihood_1, [fit_m])
             P1 = Optim.minimizer(res)[1]
-            return -log_likelihood(mc, para, P1) - ML - 0.5*chisq_95
+            return -log_likelihood(mc, para, P1) - ML - 0.5*chisq_1_95
         end
     end
     l_1 = find_zero(log_likelihood_ratio_1, (0., m))
@@ -558,12 +559,12 @@ function CI(mc::Vector{Int}, m, fit_m, infer_fit_m::Bool, ML)
     end
     function log_likelihood_ratio_2(para) 
         if para == fit_m
-            return -0.5*chisq_95
+            return -0.5*chisq_1_95
         else
             log_likelihood_2(P) = -log_likelihood(mc, P[1], para)
             res = Optim.optimize(log_likelihood_2, [m])
             P1 = Optim.minimizer(res)[1]
-            return -log_likelihood(mc, P1, para) - ML - 0.5*chisq_95
+            return -log_likelihood(mc, P1, para) - ML - 0.5*chisq_1_95
         end
     end
     l_2 = 0.
@@ -582,9 +583,9 @@ function CI(mc_p::Vector{Int}, m_p, mc_s::Vector{Int}, m_s, fit_m, ML)
     end
     function log_likelihood_ratio_1(para) 
         if para == m_p
-            return -0.5*chisq_95
+            return -0.5*chisq_1_95
         else
-            return -log_likelihood(mc_p, para, fit_m_p) -log_likelihood(mc_s, m_s, fit_m_s) - ML - 0.5*chisq_95
+            return -log_likelihood(mc_p, para, fit_m_p) -log_likelihood(mc_s, m_s, fit_m_s) - ML - 0.5*chisq_1_95
         end
     end
     l_1 = find_zero(log_likelihood_ratio_1, (0., m_p))
@@ -596,9 +597,9 @@ function CI(mc_p::Vector{Int}, m_p, mc_s::Vector{Int}, m_s, fit_m, ML)
     end
     function log_likelihood_ratio_2(para)
         if para == m_s
-            return -0.5*chisq_95 
+            return -0.5*chisq_1_95 
         else
-            return -log_likelihood(mc_p, m_p, fit_m_p) -log_likelihood(mc_s, para, fit_m_s) - ML - 0.5*chisq_95
+            return -log_likelihood(mc_p, m_p, fit_m_p) -log_likelihood(mc_s, para, fit_m_s) - ML - 0.5*chisq_1_95
         end
     end
     l_2 = find_zero(log_likelihood_ratio_2, (0., m_s))
@@ -614,12 +615,12 @@ function CI(mc_p::Vector{Int}, m_p, mc_s::Vector{Int}, m_s, fit_m, infer_fit_m::
     del_mu = Vector{Float64}(undef, 6)
     function log_likelihood_ratio_1(para)
         if para == m_p
-            return -0.5*chisq_95
+            return -0.5*chisq_1_95
         else
             log_likelihood_1(P) = -log_likelihood(mc_p, para, mc_s, P[1], P[2])
             res = Optim.optimize(log_likelihood_1, [m_s, fit_m])
             P1, P2 = Optim.minimizer(res)
-            return -log_likelihood(mc_p, para, mc_s, P1, P2) - ML - 0.5*chisq_95
+            return -log_likelihood(mc_p, para, mc_s, P1, P2) - ML - 0.5*chisq_1_95
         end
     end
     l_1 = find_zero(log_likelihood_ratio_1, (0., m_p))
@@ -637,12 +638,12 @@ function CI(mc_p::Vector{Int}, m_p, mc_s::Vector{Int}, m_s, fit_m, infer_fit_m::
     del_mu[2] = Optim.minimizer(res)[1]/u_1
     function log_likelihood_ratio_2(para)
         if para == m_s
-            return -0.5*chisq_95
+            return -0.5*chisq_1_95
         else
             log_likelihood_2(P) = -log_likelihood(mc_p, P[1], mc_s, para, P[2])
             res = Optim.optimize(log_likelihood_2, [m_p, fit_m])
             P1, P2 = Optim.minimizer(res)
-            return -log_likelihood(mc_p, P1, mc_s, para, P2) - ML - 0.5*chisq_95
+            return -log_likelihood(mc_p, P1, mc_s, para, P2) - ML - 0.5*chisq_1_95
         end
     end
     l_2 = find_zero(log_likelihood_ratio_2, (0., m_s))
@@ -660,12 +661,12 @@ function CI(mc_p::Vector{Int}, m_p, mc_s::Vector{Int}, m_s, fit_m, infer_fit_m::
     del_mu[4] = u_2/Optim.minimizer(res)[1]
     function log_likelihood_ratio_3(para) 
         if para == fit_m
-            return -0.5*chisq_95
+            return -0.5*chisq_1_95
         else
             log_likelihood_3(P) = -log_likelihood(mc_p, P[1], mc_s, P[2], para)
             res = Optim.optimize(log_likelihood_3, [m_p, m_s])
             P1, P2 = Optim.minimizer(res)
-            return -log_likelihood(mc_p, P1, mc_s, P2, para) - ML - 0.5*chisq_95
+            return -log_likelihood(mc_p, P1, mc_s, P2, para) - ML - 0.5*chisq_1_95
         end
     end
     l_3 = 0.
@@ -686,12 +687,12 @@ function CI(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, m, mu_het, f_on, rel_
     m_on = Vector{Float64}(undef, 4)
     function log_likelihood_ratio_1(para)
         if para == m
-            return -0.5*chisq_95
+            return -0.5*chisq_1_95
         else
             log_likelihood_1(P) = -log_likelihood(mc_p, mc_s, N_ratio, para, P[1], f_on, rel_div_on)
             res = Optim.optimize(log_likelihood_1, [mu_het])
             P1 = Optim.minimizer(res)[1]
-            return -log_likelihood(mc_p, mc_s, N_ratio, para, P1, f_on, rel_div_on) - ML - 0.5*chisq_95
+            return -log_likelihood(mc_p, mc_s, N_ratio, para, P1, f_on, rel_div_on) - ML - 0.5*chisq_1_95
         end
     end
     l_1 = find_zero(log_likelihood_ratio_1, (0., m))
@@ -709,12 +710,12 @@ function CI(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, m, mu_het, f_on, rel_
     m_on[2] = Optim.minimizer(res)[1]*u_1*(1-f_on)/f_on
     function log_likelihood_ratio_2(para)
         if para == mu_het
-            return -0.5*chisq_95
+            return -0.5*chisq_1_95
         else 
             log_likelihood_2(P) = -log_likelihood(mc_p, mc_s, N_ratio, P[1], para, f_on, rel_div_on)
             res = Optim.optimize(log_likelihood_2, [m])
             P1 = Optim.minimizer(res)[1]
-            return -log_likelihood(mc_p, mc_s, N_ratio, P1, para, f_on, rel_div_on) - ML - 0.5*chisq_95
+            return -log_likelihood(mc_p, mc_s, N_ratio, P1, para, f_on, rel_div_on) - ML - 0.5*chisq_1_95
         end
     end
     l_2 = 0.
@@ -736,12 +737,12 @@ function CI(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, m, mu_het, f_on, rel_
         m_on = Vector{Float64}(undef, 6)
         function log_likelihood_ratio_r1(para)
             if para == m
-                return -0.5*chisq_95
+                return -0.5*chisq_1_95
             else
                 log_likelihood_r1(P) = -log_likelihood(mc_p, mc_s, N_ratio, para, P[1], f_on, P[2])
                 res = Optim.optimize(log_likelihood_r1, [mu_het, rel_div_on])
                 P1, P2 = Optim.minimizer(res)
-                return -log_likelihood(mc_p, mc_s, N_ratio, para, P1, f_on, P2) - ML - 0.5*chisq_95
+                return -log_likelihood(mc_p, mc_s, N_ratio, para, P1, f_on, P2) - ML - 0.5*chisq_1_95
             end
         end
         l_1 = find_zero(log_likelihood_ratio_r1, (0., m))
@@ -759,12 +760,12 @@ function CI(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, m, mu_het, f_on, rel_
         m_on[2] = Optim.minimizer(res)[1]*u_1*(1-f_on)/f_on
         function log_likelihood_ratio_r2(para) 
             if para == mu_het
-                return -0.5*chisq_95
+                return -0.5*chisq_1_95
             else
                 log_likelihood_r2(P) = -log_likelihood(mc_p, mc_s, N_ratio, P[1], para, f_on, P[2])
                 res = Optim.optimize(log_likelihood_r2, [m, rel_div_on])
                 P1, P2 = Optim.minimizer(res)
-                return -log_likelihood(mc_p, mc_s, N_ratio, P1, para, f_on, P2) - ML - 0.5*chisq_95
+                return -log_likelihood(mc_p, mc_s, N_ratio, P1, para, f_on, P2) - ML - 0.5*chisq_1_95
             end
         end
         l_2 = 0.
@@ -781,12 +782,12 @@ function CI(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, m, mu_het, f_on, rel_
         m_on[4] = u_2*Optim.minimizer(res)[1]*(1-f_on)/f_on
         function log_likelihood_ratio_r3(para)
             if para == rel_div_on
-                return -0.5*chisq_95
+                return -0.5*chisq_1_95
             else 
                 log_likelihood_r3(P) = -log_likelihood(mc_p, mc_s, N_ratio, P[1], P[2], f_on, para)
                 res = Optim.optimize(log_likelihood_r3, [m, mu_het])
                 P1, P2 = Optim.minimizer(res)
-                return -log_likelihood(mc_p, mc_s, N_ratio, P1, P2, f_on, para) - ML - 0.5*chisq_95
+                return -log_likelihood(mc_p, mc_s, N_ratio, P1, P2, f_on, para) - ML - 0.5*chisq_1_95
             end
         end
         l_3 = 0.
@@ -808,12 +809,12 @@ function CI(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, m, mu_het, f_on, rel_
         del_mu = Vector{Float64}(undef, 6)
         function log_likelihood_ratio_f1(para)
             if para == m
-                return -0.5*chisq_95
+                return -0.5*chisq_1_95
             else
                 log_likelihood_f1(P) = -log_likelihood(mc_p, mc_s, N_ratio, para, P[1], P[2], rel_div_on)
                 res = Optim.optimize(log_likelihood_f1, [mu_het, f_on])
                 P1, P2 = Optim.minimizer(res)
-                return -log_likelihood(mc_p, mc_s, N_ratio, para, P1, P2, f_on) - ML - 0.5*chisq_95
+                return -log_likelihood(mc_p, mc_s, N_ratio, para, P1, P2, f_on) - ML - 0.5*chisq_1_95
             end
         end
         l_1 = 0.
@@ -839,12 +840,12 @@ function CI(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, m, mu_het, f_on, rel_
         del_mu[2] = (1-Optim.minimizer(res)[2])*(1+Optim.minimizer(res)[1])
         function log_likelihood_ratio_f2(para) 
             if para == mu_het
-                return -0.5*chisq_95
+                return -0.5*chisq_1_95
             else
                 log_likelihood_f2(P) = -log_likelihood(mc_p, mc_s, N_ratio, P[1], para, P[2], rel_div_on)
                 res = Optim.optimize(log_likelihood_f2, [m, f_on])
                 P1, P2 = Optim.minimizer(res)
-                return -log_likelihood(mc_p, mc_s, N_ratio, P1, para, P2, rel_div_on) - ML - 0.5*chisq_95
+                return -log_likelihood(mc_p, mc_s, N_ratio, P1, para, P2, rel_div_on) - ML - 0.5*chisq_1_95
             end
         end
         l_2 = 0.
@@ -865,12 +866,12 @@ function CI(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, m, mu_het, f_on, rel_
         del_mu[4] = (1-Optim.minimizer(res)[2])*(1+u_2)
         function log_likelihood_ratio_f3(para)
             if para == rel_div_on
-                return -0.5*chisq_95
+                return -0.5*chisq_1_95
             else 
                 log_likelihood_f3(P) = -log_likelihood(mc_p, mc_s, N_ratio, P[1], P[2], para, rel_div_on)
                 res = Optim.optimize(log_likelihood_r3, [m, mu_het])
                 P1, P2 = Optim.minimizer(res)
-                return -log_likelihood(mc_p, mc_s, N_ratio, P1, P2, para, rel_div_on) - ML - 0.5*chisq_95
+                return -log_likelihood(mc_p, mc_s, N_ratio, P1, P2, para, rel_div_on) - ML - 0.5*chisq_1_95
             end
         end
         l_3 = 0.
@@ -899,12 +900,12 @@ end
 function CI(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, m, mu_het, ML)
     function log_likelihood_ratio_1(para)
         if para == m
-            return -0.5*chisq_95
+            return -0.5*chisq_1_95
         else
             log_likelihood_1(P) = -log_likelihood(mc_p, mc_s, N_ratio, para, P[1])
             res = Optim.optimize(log_likelihood_1, [mu_het])
             P1 = Optim.minimizer(res)[1]
-            return -log_likelihood(mc_p, mc_s, N_ratio, para, P1) - ML - 0.5*chisq_95
+            return -log_likelihood(mc_p, mc_s, N_ratio, para, P1) - ML - 0.5*chisq_1_95
         end
     end
     l_1 = find_zero(log_likelihood_ratio_1, (0., m))
@@ -916,12 +917,12 @@ function CI(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, m, mu_het, ML)
     end
     function log_likelihood_ratio_2(para) 
         if para == mu_het
-            return -0.5*chisq_95
+            return -0.5*chisq_1_95
         else
             log_likelihood_2(P) = -log_likelihood(mc_p, mc_s, N_ratio, P[1], para)
             res = Optim.optimize(log_likelihood_2, [m])
             P2 = Optim.minimizer(res)[1]
-            return -log_likelihood(mc_p, mc_s, N_ratio, P2, para) - ML - 0.5*chisq_95
+            return -log_likelihood(mc_p, mc_s, N_ratio, P2, para) - ML - 0.5*chisq_1_95
         end
     end
     l_2 = 0.
@@ -938,12 +939,12 @@ function CI(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, m, mu_het, f_on, rel_
     del_mu = Vector{Float64}(undef, 8)
     function log_likelihood_ratio_1(para)
         if para == m
-            return -0.5*chisq_95
+            return -0.5*chisq_1_95
         else
             log_likelihood_1(P) = -log_likelihood(mc_p, mc_s, N_ratio, para, P[1], P[2], P[3])
             res = Optim.optimize(log_likelihood_1, [mu_het, f_on, rel_div_on])
             P1, P2, P3 = Optim.minimizer(res)
-            return -log_likelihood(mc_p, mc_s, N_ratio, para, P1, P2, P3) - ML - 0.5*chisq_95
+            return -log_likelihood(mc_p, mc_s, N_ratio, para, P1, P2, P3) - ML - 0.5*chisq_1_95
         end
     end
     l_1 = find_zero(log_likelihood_ratio_1, (0., m))
@@ -965,12 +966,12 @@ function CI(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, m, mu_het, f_on, rel_
     del_mu[2] = (1-Optim.minimizer(res)[2])*(1+Optim.minimizer(res)[1])
     function log_likelihood_ratio_2(para) 
         if para == mu_het
-            return -0.5*chisq_95
+            return -0.5*chisq_1_95
         else
             log_likelihood_2(P) = -log_likelihood(mc_p, mc_s, N_ratio, P[1], para, P[2], P[3])
             res = Optim.optimize(log_likelihood_2, [m, f_on, rel_div_on])
             P1, P2, P3 = Optim.minimizer(res)
-            return -log_likelihood(mc_p, mc_s, N_ratio, P1, para, P2, P3) - ML - 0.5*chisq_95
+            return -log_likelihood(mc_p, mc_s, N_ratio, P1, para, P2, P3) - ML - 0.5*chisq_1_95
         end
     end
     l_2 = 0.
@@ -991,12 +992,12 @@ function CI(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, m, mu_het, f_on, rel_
     del_mu[4] = (1-Optim.minimizer(res)[2])*(1+u_2)
     function log_likelihood_ratio_3(para)
         if para == rel_div_on
-            return -0.5*chisq_95
+            return -0.5*chisq_1_95
         else 
             log_likelihood_3(P) = -log_likelihood(mc_p, mc_s, N_ratio, P[1], P[2], para, P[3])
             res = Optim.optimize(log_likelihood_3, [m, mu_het, rel_div_on])
             P1, P2, P3 = Optim.minimizer(res)
-            return -log_likelihood(mc_p, mc_s, N_ratio, P1, P2, para, P3) - ML - 0.5*chisq_95
+            return -log_likelihood(mc_p, mc_s, N_ratio, P1, P2, para, P3) - ML - 0.5*chisq_1_95
         end
     end
     l_3 = 0.
@@ -1021,12 +1022,12 @@ function CI(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, m, mu_het, f_on, rel_
     del_mu[6] = (1-u_3)*(1+Optim.minimizer(res)[2])
     function log_likelihood_ratio_4(para)
         if para == f_on
-            return -0.5*chisq_95
+            return -0.5*chisq_1_95
         else
             log_likelihood_4(P) = -log_likelihood(mc_p, mc_s, N_ratio, P[1], P[2], P[3], para)
             res = Optim.optimize(log_likelihood_4, [m, mu_het, f_on])
             P1, P2, P3 = Optim.minimizer(res)
-            return - log_likelihood(mc_p, mc_s, N_ratio, P1, P2, P3, para) - ML - 0.5*chisq_95
+            return - log_likelihood(mc_p, mc_s, N_ratio, P1, P2, P3, para) - ML - 0.5*chisq_1_95
         end
     end
     l_4 = 0.
