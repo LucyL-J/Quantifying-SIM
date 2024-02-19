@@ -18,15 +18,16 @@ function simulate_fluctuation_assays(range, range_2=""; set_seed=false, S1=false
     N0 = 10^4
     expected_M = 1
     division_off = 1.
-    fitness_m = 1.
-    mutation_off = 10^-8.
+    fitness_m_p, fitness_m_s = 1., 1.
+    mutation_off_p, mutation_off_s = 10^-8., 10^-8.
     death_off = 0.
     division_on = 0.
     death_on = 0.
     Nf = 10^9
-    num_cultures = 5*10^3
+    num_cultures = 10^4
     p = DataFrame(CSV.File("input_parameters/"*range*".csv"))   # Reading other input parameters             
     f0_on = p.f0_on[1]
+    f_stat = false
     switching = p.alpha[1]
     mutation_on = p.nu_on[1]
     r_parameter = p.r_parameter[1]                              # This parameter is varied; the other parameters are fixed
@@ -55,6 +56,9 @@ function simulate_fluctuation_assays(range, range_2=""; set_seed=false, S1=false
         r2_start = p2.r_start[1]
         r2_end = p2.r_end[1]
         r2_i = p2.r_increment[1]
+        if p2.f0_on[1] == "stat"
+            f_stat = true
+        end
         j2 = 1  
         try
             mkdir("output_data/"*range_2)
@@ -65,8 +69,15 @@ function simulate_fluctuation_assays(range, range_2=""; set_seed=false, S1=false
     for r2 = r2_start:r2_i:r2_end
         if r2_parameter == "log_alpha"
             switching = 10^r2 
+        elseif r2_parameter == "delta_on"
+            death_on = r2
         elseif r2_parameter == "rho"
-            fitness_m = r2
+            fitness_m_p, fitness_m_s = r2, r2
+        elseif r2_parameter == "rho_s"
+            fitness_m_s = r2
+        end
+        if f_stat
+            f0_on = switching/(division_off-death_off)
         end
         j = 1
         for r = r_start:r_i:r_end
@@ -74,20 +85,15 @@ function simulate_fluctuation_assays(range, range_2=""; set_seed=false, S1=false
                 mutation_on = 10^r
             elseif r_parameter == "delta_off"
                 death_off = r
-            elseif r_parameter == "delta_on"
-                death_on = r
-            elseif r_parameter == "delta"
-                delta_off, death_on = r, r
             elseif r_parameter == "gamma_on"
                 division_on = r
-            elseif r_parameter == "log_mu_off"
-                mutation_off = 10^r
+            elseif r_parameter == "log_nu_off_s"
+                mutation_off_s = 10^r
+            elseif r_parameter == "rho"
+                fitness_m_p, fitness_m_s = r, r
             end
             if S1 == true
-                if f0_on == "stat"
-                    f0_on = switching/(division_off-death_off)
-                end
-                t1 = t_first_m(N0, division_off-switching-death_off, mutation_off*(1-f0_on)+mutation_on*f0_on)
+                t1 = t_first_m(N0, division_off-switching-death_off, mutation_off_s*(1-f0_on)+mutation_on*f0_on)
                 tf = t_final(N0, division_off-switching-death_off, Nf)
                 for i = 1:size(n)[1]
                     n[i,1] = non_mutants_on(t1, N0*(1-f0_on), division_off-switching-death_off, switching, Int(round(N0*f0_on)), division_on, death_on, N0)
@@ -96,8 +102,8 @@ function simulate_fluctuation_assays(range, range_2=""; set_seed=false, S1=false
                 n_t1[:,"$j"] = n[:,1]
                 n_tf[:,"$j"] = n[:,2]
             else
-                T = t_expected_m(N0*(1-f0_on), division_off-switching-death_off, mutation_off, switching, N0*f0_on, division_on, mutation_on, expected_M)
-                mc, Nf, f_on = mutant_count(T, N0, division_off, mutation_off, switching, division_on, mutation_on, num_cultures, fitness_m_off=fitness_m, death_off=death_off, death_on=death_on, f0_on=f0_on)
+                T = t_expected_m(N0*(1-f0_on), division_off-switching-death_off, mutation_off_s, switching, N0*f0_on, division_on, mutation_on, expected_M)
+                mc, Nf, f_on = mutant_count(T, N0, division_off, mutation_off_s, switching, division_on, mutation_on, num_cultures, fitness_m_off=fitness_m, death_off=death_off, death_on=death_on, f0_on=f0_on)
                 mutant_counts[:,"$j"] = mc
                 p_final[:,"$j"] = [Nf, f_on, T]
             end
@@ -108,8 +114,8 @@ function simulate_fluctuation_assays(range, range_2=""; set_seed=false, S1=false
             CSV.write("output_data/"*range_2*"n_tf-"*range*"_$(r2_parameter)_$j2.csv", n_tf)
             j2 += 1
         else
-            T_p = t_expected_m(N0, division_off, mutation_off, 0., 0, 0., 0., expected_M)
-            mc_p, Nf_p = mutant_count(T_p, N0, division_off, mutation_off, num_cultures, fitness_m=fitness_m)
+            T_p = t_expected_m(N0, division_off, mutation_off_p, 0., 0, 0., 0., expected_M)
+            mc_p, Nf_p = mutant_count(T_p, N0, division_off, mutation_off_p, num_cultures, fitness_m=fitness_m)
             mutant_counts.p = mc_p
             p_final.p = [Nf_p, 0., T_p]
             if range_2 == "" 
