@@ -1,2 +1,2 @@
 f0_on,alpha,nu_on,r_start,r_end,r_increment,r_parameter,random_seed
-0.,0.05,1e-6,-8.,-6.,0.1,log_nu_on,3518531280227670036
+0.,0.05,1e-6,-8.,-5.,0.1,log_nu_on,3518531280227670036
