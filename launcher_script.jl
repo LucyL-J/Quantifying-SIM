@@ -258,8 +258,9 @@ function data_inference_manuscript()
     # (iii) Homogeneous-response model without/with/jointly inferring the differential fitness of mutants
     for i in [10, 100]
         simulate_fluctuation_assays("range-gamma_on-increase$i", set_seed=true)
-        infer_mutation_rates("range-gamma_on-increase$i", "model_selection", [50])
     end
+    infer_mutation_rates("range-gamma_on-increase10", "model_selection", [50])
+    infer_mutation_rates("range-gamma_on-increase100", "model_selection", [50,20,10])
     for mod in ["het_zero-div", "het_set-div", "het_infer-div"]
         infer_mutation_rates("range-gamma_on-increase100", mod, [50], conf=true)
     end
