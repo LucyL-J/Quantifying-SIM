@@ -258,8 +258,9 @@ function data_inference_manuscript()
     # (iii) Homogeneous-response model without/with/jointly inferring the differential fitness of mutants
     for i in [10, 100]
         simulate_fluctuation_assays("range-gamma_on-increase$i", set_seed=true)
-        infer_mutation_rates("range-gamma_on-increase$i", "model_selection", [50])
     end
+    infer_mutation_rates("range-gamma_on-increase10", "model_selection", [50])
+    infer_mutation_rates("range-gamma_on-increase100", "model_selection", [50,20,10])
     for mod in ["het_zero-div", "het_set-div", "het_infer-div"]
         infer_mutation_rates("range-gamma_on-increase100", mod, [50], conf=true)
     end
@@ -279,4 +280,102 @@ function data_supplementary_material()
     for f in ["f0", "fstat"]
         simulate_fluctuation_assays("range-gamma_on-increase100", "range-alpha-"*f, set_seed=true, S1=true)
     end
+end
+
+function rerun(inc, num_c)
+mc_bound = 1000
+mutant_counts = DataFrame(CSV.File("output_data/mutant_counts-range-gamma_on-increase$inc.csv"))
+p_final = DataFrame(CSV.File("output_data/p_final-range-gamma_on-increase$inc.csv"))
+mc_p = mutant_counts[:,end]
+mc_p = mc_p[mc_p .< mc_bound]
+Nf_p = p_final[1,end]
+n = 1
+for c in num_c
+    for j = 1:21
+        selected_model = DataFrame()
+        selected_m = zeros(Int, (5,100))
+        mc_s = mutant_counts[:,j]
+        mc_s = mc_s[mc_s .< mc_bound]
+        Nf_s = p_final[1,j]
+        est_res_1 = Matrix(DataFrame(CSV.File("inferred_parameters/range-gamma_on-increase$inc/hom_wo-fitm-number_cultures_$c-gamma_on_$j.csv")))
+        est_res_2 = Matrix(DataFrame(CSV.File("inferred_parameters/range-gamma_on-increase$inc/hom_fitm-number_cultures_$c-gamma_on_$j.csv")))
+        est_res_3 = Matrix(DataFrame(CSV.File("inferred_parameters/range-gamma_on-increase$inc/hom_fitm-unconstr-number_cultures_$c-gamma_on_$j.csv")))
+        est_res_4 = Matrix(DataFrame(CSV.File("inferred_parameters/range-gamma_on-increase$inc/het_zero-div_unknown-f-number_cultures_$c-gamma_on_$j.csv")))
+        est_res_5 = Matrix(DataFrame(CSV.File("inferred_parameters/range-gamma_on-increase$inc/het_infer-div_unknown-f-number_cultures_$c-gamma_on_$j.csv")))
+        sel_m = Matrix(DataFrame(CSV.File("inferred_parameters/range-gamma_on-increase$inc/selected_model-number_cultures_$c-gamma_on_$j.csv")))
+        for i = 1:100
+            while (sum(mc_p[n+(i-1)*c:n-1+i*c]) == 0) || (sum(mc_s[n+(i-1)*c:n-1+i*c]) == 0)
+                n += c
+            end
+            hom = [1, 2]
+            ABIC_hom = [Inf, Inf]
+            s_hom = Vector{Float64}(undef, 10)
+            hom_1 = est_res_1[:,i]
+            hom_2 = est_res_2[:,i]
+            hom_3 = est_res_3[:,i]
+            if hom_1[19] - hom_2[19] > chisq_1_95
+                if hom_2[19] - hom_3[19] > chisq_1_95
+                    hom = [3, 4]
+                    ABIC_hom = hom_3[20:21]
+                else
+                    hom = [2, 3]
+                    ABIC_hom = hom_2[20:21]
+                    s_hom = CV(mc_p[n+(i-1)*c:n-1+i*c], mc_s[n+(i-1)*c:n-1+i*c])
+                end
+            elseif hom_1[19] - hom_3[19] > chisq_2_95
+                hom = [3, 4]
+                ABIC_hom = hom_3[20:21]
+                s_hom = CV(mc_p[n+(i-1)*c:n-1+i*c]) .+ CV(mc_s[n+(i-1)*c:n-1+i*c])
+            else
+                ABIC_hom = hom_1[20:21]
+                s_hom = CV(mc_p[n+(i-1)*c:n-1+i*c], 1.) .+ CV(mc_s[n+(i-1)*c:n-1+i*c], 1.)
+            end
+            het = [4, 2]
+            ABIC_het = [Inf, Inf]
+            s_het = Vector{Float64}(undef, 10)
+            het_4 = est_res_4[:,i]
+            het_5 = est_res_5[:,i]
+            if het_4[7] - het_5[22] > chisq_2_95
+                het = [5, 4]
+                ABIC_het = het_5[23:24]
+                s_het = CV(mc_p[n+(i-1)*c:n-1+i*c], mc_s[n+(i-1)*c:n-1+i*c], Nf_p/Nf_s, het_5[7], true)
+            else
+                ABIC_het = het_4[8:9]
+                s_het = CV(mc_p[n+(i-1)*c:n-1+i*c], mc_s[n+(i-1)*c:n-1+i*c], Nf_p/Nf_s)
+            end
+            if ABIC_het[1] - ABIC_hom[1] < -2
+                selected_m[3,i] = het[1]
+            elseif ABIC_het[1] - ABIC_hom[1] > 2
+                selected_m[3,i] = hom[1]
+            end
+            if ABIC_het[2] - ABIC_hom[2] < -2
+                selected_m[4,i] = het[1]
+            elseif ABIC_het[2] - ABIC_hom[2] > 2
+                selected_m[4,i] = hom[1]
+            end
+            if mean(s_het) < mean(s_hom)
+                if het[2] < hom[2] || mean(s_het) + std(s_het)*(1-cor(s_het,s_hom))^0.5 < mean(s_hom)
+                    selected_m[5,i] = het[1]
+                elseif het[2] == hom[2] && mean(s_het) + std(s_het)*(1-cor(s_het,s_hom))^0.5 >= mean(s_hom)
+                    selected_m[5,i] = 0
+                else
+                    selected_m[5,i] = hom[1]
+                end
+            else
+                if hom[2] < het[2] || mean(s_hom) + std(s_hom)*(1-cor(s_het,s_hom))^0.5 < mean(s_het)
+                    selected_m[5,i] = hom[1]
+                elseif hom[2] == het[2] && mean(s_hom) + std(s_hom)*(1-cor(s_het,s_hom))^0.5 >= mean(s_het)
+                    selected_m[5,i] = 0
+                else
+                    selected_m[5,i] = het[1]
+                end
+            end
+            selected_m[1,i] = hom[1]
+            selected_m[2,i] = het[1]
+            selected_model[:, "$i"] = selected_m[:,i]
+        end
+        CSV.write("inferred_parameters/range-gamma_on-increase$inc/selected_model-number_cultures_$c-gamma_on_$(j)_new.csv", selected_model)
+    end
+    n += 100*c
+end
 end
