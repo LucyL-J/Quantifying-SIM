@@ -1,6 +1,6 @@
 import Pkg
-#Pkg.activate("packages")
-#Pkg.instantiate()
+Pkg.activate("packages")
+Pkg.instantiate()
 include("population_dynamics.jl")
 include("inference.jl")
 try
@@ -110,8 +110,8 @@ function simulate_fluctuation_assays(range, range_2=""; set_seed=false, S1=false
             j += 1
         end
         if S1 == true
-            CSV.write("output_data/"*range_2*"n_t1-"*range*"_$(r2_parameter)_$j2.csv", n_t1)
-            CSV.write("output_data/"*range_2*"n_tf-"*range*"_$(r2_parameter)_$j2.csv", n_tf)
+            CSV.write("output_data/"*range_2*"n_t1-"*range*"-$(r2_parameter)_$j2.csv", n_t1)
+            CSV.write("output_data/"*range_2*"n_tf-"*range*"-$(r2_parameter)_$j2.csv", n_tf)
             j2 += 1
         else
             T_p = t_expected_m(N0, division_off, mutation_off_p, 0., 0, 0., 0., expected_M)
@@ -122,8 +122,8 @@ function simulate_fluctuation_assays(range, range_2=""; set_seed=false, S1=false
                 CSV.write("output_data/mutant_counts-"*range*".csv", mutant_counts)
                 CSV.write("output_data/p_final-"*range*".csv", p_final)
             else
-                CSV.write("output_data/"*range_2*"mutant_counts-"*range*"_$(r2_parameter)_$j2.csv", mutant_counts)
-                CSV.write("output_data/"*range_2*"p_final-"*range*"_$(r2_parameter)_$j2.csv", p_final)
+                CSV.write("output_data/"*range_2*"mutant_counts-"*range*"-$(r2_parameter)_$j2.csv", mutant_counts)
+                CSV.write("output_data/"*range_2*"p_final-"*range*"-$(r2_parameter)_$j2.csv", p_final)
                 j2 += 1
             end
         end
