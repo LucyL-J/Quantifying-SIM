@@ -41,8 +41,13 @@ function Q(K::Int, m, fit_m)
             q[k+1] = m / (k*(k+1))
         end
     else
+        #y = 1+1/fit_m
+        #z = 1/y
         for k = 1:K
             q[k+1] = m/fit_m * factorial(big(k-1)) * gamma(1+1/fit_m) / gamma(1+1/fit_m+k)
+            #q[k+1] = m/fit_m * z
+            #y += 1
+            #z *= k/y
         end
     end
     return q
@@ -78,6 +83,13 @@ function pdf_mudi(K::Int, m, mu_het, f_on, rel_div_on)
     end
 end
 pdf_mudi(K::Int, m, mu_het, zero_div::Bool) = pdf_mudi(K, m, mu_het, 0.5, 0.)
+function cdf_mudi(mc)
+    x = copy(mc)
+    for i = 2:length(mc)
+        x[i] += x[i-1]
+    end
+    return x
+end
 
 # Mutation rate estimation algorithms 
 # Return maximum likelihood estimates, confidence intervals, and AIC/BIC value (if the optimisation fails, Inf is returned)
@@ -408,7 +420,7 @@ function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Bool
 end
 
 # Model selection
-function estimu_select(mc_p, Nf_p, mc_s, Nf_s)
+function estimu_select(mc_p, Nf_p, mc_s, Nf_s; conf=false)
     selected_m = zeros(Int, 3)
     hom = [1, 2]
     ABIC_hom = [Inf, Inf]
@@ -421,18 +433,22 @@ function estimu_select(mc_p, Nf_p, mc_s, Nf_s)
             hom = [3, 4]
             ABIC_hom = hom_3[20:21]
             s_hom = CV(mc_p) .+ CV(mc_s)
+            hom_3 = estimu_hom(mc_p, Nf_p, mc_s, Nf_s, (false,false), conf=conf)
         else
             hom = [2, 3]
             ABIC_hom = hom_2[20:21]
             s_hom = CV(mc_p, mc_s)
+            hom_2 = estimu_hom(mc_p, Nf_p, mc_s, Nf_s, false, conf=conf)
         end
     elseif hom_1[19] - hom_3[19] > chisq_2_95
         hom = [3, 4]
         ABIC_hom = hom_3[20:21]
         s_hom = CV(mc_p) .+ CV(mc_s)
+        hom_3 = estimu_hom(mc_p, Nf_p, mc_s, Nf_s, (false,false), conf=conf)
     else
         ABIC_hom = hom_1[20:21]
         s_hom = CV(mc_p, 1.) .+ CV(mc_s, 1.)
+        hom_1 = estimu_hom(mc_p, Nf_p, mc_s, Nf_s, conf=conf)
     end
     het = [4, 2]
     ABIC_het = [Inf, Inf]
@@ -443,9 +459,11 @@ function estimu_select(mc_p, Nf_p, mc_s, Nf_s)
         het = [5, 4]
         ABIC_het = het_5[23:24]
         s_het = CV(mc_p, mc_s, Nf_p/Nf_s, het_5[7], true)
+        het_5 = estimu_het(mc_p, Nf_p, mc_s, Nf_s, false, false, conf=conf)
     else
         ABIC_het = het_4[8:9]
         s_het = CV(mc_p, mc_s, Nf_p/Nf_s)
+        het_4 = estimu_het(mc_p, Nf_p, mc_s, Nf_s, false, conf=conf)
     end
     if ABIC_het[1] - ABIC_hom[1] < -2
         selected_m[1] = het[1]
@@ -1289,6 +1307,14 @@ function empirical_pgf(z, x) # Empirical probability generating function calcula
     end
     g /= length(x)
     return g
+end
+function empirical_cdf(x) # Empirical cumulative densitity function calculated from observed data
+    y = counts(x, 0:maximum(x))
+    for i = 2:length(y)
+        y[i] += y[i-1]
+    end
+    z = y ./ y[end]
+    return z
 end
 function initial_m(z, mc)                     # Estimate number of mutations for a homogeneous population and given z        
     if z == 0.

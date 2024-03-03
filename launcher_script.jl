@@ -204,7 +204,7 @@ function infer_mutation_rates(range, mod, num_cultures, range_2=""; conf=false)
                     elseif mod == "het_infer-div"
                         est_res[:,"$i"] = estimu_het(mc_p[n+(i-1)*c:n-1+i*c], Nf_p, mc_s[n+(i-1)*c:n-1+i*c], Nf_s, f_on, false, conf=conf)
                     elseif mod == "model_selection"
-                        hom_1, hom_3, hom_4, het_2, het_5, selected_m = estimu_select(mc_p[n+(i-1)*c:n-1+i*c], Nf_p, mc_s[n+(i-1)*c:n-1+i*c], Nf_s)
+                        hom_1, hom_3, hom_4, het_2, het_5, selected_m = estimu_select(mc_p[n+(i-1)*c:n-1+i*c], Nf_p, mc_s[n+(i-1)*c:n-1+i*c], Nf_s, conf=conf)
                         est_res_1[:,"$i"] = hom_1
                         est_res_2[:,"$i"] = het_2
                         est_res_3[:,"$i"] = hom_3
@@ -259,8 +259,8 @@ function data_inference_manuscript()
     for i in [10, 100]
         simulate_fluctuation_assays("range-gamma_on-increase$i", set_seed=true)
     end
-    infer_mutation_rates("range-gamma_on-increase10", "model_selection", [50])
-    infer_mutation_rates("range-gamma_on-increase100", "model_selection", [50,20,10])
+    infer_mutation_rates("range-gamma_on-increase10", "model_selection", [50], conf=true)
+    infer_mutation_rates("range-gamma_on-increase100", "model_selection", [50,20,10], conf=true)
     for mod in ["het_zero-div", "het_set-div", "het_infer-div"]
         infer_mutation_rates("range-gamma_on-increase100", mod, [50], conf=true)
     end
@@ -270,7 +270,7 @@ function data_inference_manuscript()
     # (ii) Homogeneous-response model without/with/jointly inferring the differential fitness of mutants
     for i in ["", "_unconstr"]
         simulate_fluctuation_assays("range-nu_off_s", "range-rho"*i, set_seed=true)
-        infer_mutation_rates("range-nu_off_s", "model_selection", [50], "range-rho"*i)
+        infer_mutation_rates("range-nu_off_s", "model_selection", [50], "range-rho"*i, conf=true)
     end
 end
 
