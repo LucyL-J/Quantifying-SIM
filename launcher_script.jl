@@ -1,6 +1,6 @@
-import Pkg
-Pkg.activate("packages")
-Pkg.instantiate()
+#import Pkg
+#Pkg.instantiate()
+#Pkg.activate("packages")
 include("population_dynamics.jl")
 include("inference.jl")
 try
@@ -204,11 +204,11 @@ function infer_mutation_rates(range, mod, num_cultures, range_2=""; conf=false)
                     elseif mod == "het_infer-div"
                         est_res[:,"$i"] = estimu_het(mc_p[n+(i-1)*c:n-1+i*c], Nf_p, mc_s[n+(i-1)*c:n-1+i*c], Nf_s, f_on, false, conf=conf)
                     elseif mod == "model_selection"
-                        hom_1, hom_3, hom_4, het_2, het_5, selected_m = estimu_select(mc_p[n+(i-1)*c:n-1+i*c], Nf_p, mc_s[n+(i-1)*c:n-1+i*c], Nf_s, conf=conf)
+                        hom_1, hom_2, hom_3, het_4, het_5, selected_m = estimu_select(mc_p[n+(i-1)*c:n-1+i*c], Nf_p, mc_s[n+(i-1)*c:n-1+i*c], Nf_s, conf=conf)
                         est_res_1[:,"$i"] = hom_1
-                        est_res_2[:,"$i"] = het_2
+                        est_res_2[:,"$i"] = hom_2
                         est_res_3[:,"$i"] = hom_3
-                        est_res_4[:,"$i"] = hom_4
+                        est_res_4[:,"$i"] = het_4
                         est_res_5[:,"$i"] = het_5
                         selected_model[:, "$i"] = selected_m
                     end
@@ -216,9 +216,9 @@ function infer_mutation_rates(range, mod, num_cultures, range_2=""; conf=false)
                 if mod == "model_selection"
                     #selected_model.Criterion = ["LRT (hom)", "LRT (het)", "AIC", "BIC", "CV"]
                     CSV.write("inferred_parameters/"*range_2*range*suffix*"hom_wo-fitm-number_cultures_$c-$(r_parameter)_$j.csv", est_res_1)
-                    CSV.write("inferred_parameters/"*range_2*range*suffix*"het_zero-div_unknown-f-number_cultures_$c-$(r_parameter)_$j.csv", est_res_2)
-                    CSV.write("inferred_parameters/"*range_2*range*suffix*"hom_fitm-number_cultures_$c-$(r_parameter)_$j.csv", est_res_3)
-                    CSV.write("inferred_parameters/"*range_2*range*suffix*"hom_fitm-unconstr-number_cultures_$c-$(r_parameter)_$j.csv", est_res_4)
+                    CSV.write("inferred_parameters/"*range_2*range*suffix*"hom_fitm-number_cultures_$c-$(r_parameter)_$j.csv", est_res_2)
+                    CSV.write("inferred_parameters/"*range_2*range*suffix*"hom_fitm-unconstr-number_cultures_$c-$(r_parameter)_$j.csv", est_res_3)
+                    CSV.write("inferred_parameters/"*range_2*range*suffix*"het_zero-div_unknown-f-number_cultures_$c-$(r_parameter)_$j.csv", est_res_4)
                     CSV.write("inferred_parameters/"*range_2*range*suffix*"het_infer-div_unknown-f-number_cultures_$c-$(r_parameter)_$j.csv", est_res_5)
                     CSV.write("inferred_parameters/"*range_2*range*suffix*"selected_model-number_cultures_$c-$(r_parameter)_$j.csv", selected_model)
                 else
@@ -279,5 +279,42 @@ function data_supplementary_material()
     # Simulating response-on non-mutants stochastically to test assumption S1
     for f in ["f0", "fstat"]
         simulate_fluctuation_assays("range-gamma_on-increase100", "range-alpha-"*f, set_seed=true, S1=true)
+    end
+end
+
+function model_selection_BIC_only(r, num_c, r2=["", 1, "/"])
+    c = num_c
+    range, J, r_parameter = r
+    range_2, J2, r2_parameter = r2
+    for j2 = 1:J2
+        if range_2 == ""
+            suffix = "/"
+        else
+            suffix = "-$(r2_parameter)_$j2/"
+        end
+        for j = 1:J
+            est_res_1 = Matrix(DataFrame(CSV.File("inferred_parameters/"*range_2*range*suffix*"hom_wo-fitm-number_cultures_$c-$(r_parameter)_$j.csv")))[21,:]
+            est_res_2 = Matrix(DataFrame(CSV.File("inferred_parameters/"*range_2*range*suffix*"hom_fitm-number_cultures_$c-$(r_parameter)_$j.csv")))[21,:]
+            est_res_3 = Matrix(DataFrame(CSV.File("inferred_parameters/"*range_2*range*suffix*"hom_fitm-unconstr-number_cultures_$c-$(r_parameter)_$j.csv")))[21,:]
+            est_res_4 = Matrix(DataFrame(CSV.File("inferred_parameters/"*range_2*range*suffix*"het_zero-div_unknown-f-number_cultures_$c-$(r_parameter)_$j.csv")))[9,:]
+            est_res_5 = Matrix(DataFrame(CSV.File("inferred_parameters/"*range_2*range*suffix*"het_infer-div_unknown-f-number_cultures_$c-$(r_parameter)_$j.csv")))[24,:]
+            selected_m = DataFrame(CSV.File("inferred_parameters/"*range_2*range*suffix*"selected_model-number_cultures_$c-$(r_parameter)_$j.csv"))
+            BIC_old = selected_m[4,:]
+            for i = 1:100
+                hom = minimum([est_res_1[i], est_res_2[i], est_res_3[i]])
+                hom_arg = argmin([est_res_1[i], est_res_2[i], est_res_3[i]])
+                het = minimum([est_res_4[i], est_res_5[i]])
+                het_arg = argmin([est_res_4[i], est_res_5[i]]) + 3
+                if het - hom < -2
+                    selected_m[4,i] = het_arg
+                elseif het - hom > 2
+                    selected_m[4,i] = hom_arg
+                else
+                    selected_m[4,i] = 0
+                end
+            end
+            push!(selected_m, BIC_old)
+            CSV.write("inferred_parameters/"*range_2*range*suffix*"selected_model-number_cultures_$c-$(r_parameter)_$j.csv", selected_m)
+        end
     end
 end
