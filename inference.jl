@@ -41,13 +41,8 @@ function Q(K::Int, m, fit_m)
             q[k+1] = m / (k*(k+1))
         end
     else
-        #y = 1+1/fit_m
-        #z = 1/y
         for k = 1:K
             q[k+1] = m/fit_m * factorial(big(k-1)) * gamma(1+1/fit_m) / gamma(1+1/fit_m+k)
-            #q[k+1] = m/fit_m * z
-            #y += 1
-            #z *= k/y
         end
     end
     return q
@@ -55,10 +50,9 @@ end
 
 # Mutant count distribution for heterogeneous-response model (two subpopulations with stress response switched off/on, called off/on-cells). 
 # m: Number of mutations arising in off-cells
-# mu_het: Mutation-rate heterogeneity = mu_on/mu_off * f_on/(1-f_on)
+# mu_het: Mutation-supply ratio = mu_on/mu_off * f_on/(1-f_on)
 # f_on: Fraction of on-cells at the end of the growth phase
 # rel_div_on: Relative division rate of on-cells compared to off-cells
-# Mutant count distribution not explicitely dependent on f_on if rel_div_on=0 (with the exception of the case f_on=0)
 # Returns probabilities to observe 0,...,K mutants
 function pdf_mudi(K::Int, m, mu_het, f_on, rel_div_on)
     if f_on == 0.
@@ -82,7 +76,9 @@ function pdf_mudi(K::Int, m, mu_het, f_on, rel_div_on)
         return p
     end
 end
+# Mutant count distribution not explicitely dependent on f_on if rel_div_on=0
 pdf_mudi(K::Int, m, mu_het, zero_div::Bool) = pdf_mudi(K, m, mu_het, 0.5, 0.)
+# Cumulative distribution function calculated from the probability generating function
 function cdf_mudi(mc)
     x = copy(mc)
     for i = 2:length(mc)
@@ -102,6 +98,7 @@ end
 # fit_m: Mutant fitness
 #        By default fit_m=1 but can be set to different value if known from separate experiment
 #        Alternatively, mutant fitness is inferred if fit_m=false
+# conf: Confidence intervals are calculated if conf=true
 function estimu_hom(mc::Vector{Int}, Nf, fit_m::Float64=1.; conf=false)
 	est_res = zeros(Float64, 9)
     est_res[4:6] = [fit_m, fit_m, fit_m]                                                                  
@@ -121,7 +118,7 @@ function estimu_hom(mc::Vector{Int}, Nf, fit_m::Float64=1.; conf=false)
 	end 
 	return est_res
 end 
-function estimu_hom(mc::Vector{Int}, Nf, fit_m::Bool; conf=false)                                   # Mutant fitness not given -> inferred 
+function estimu_hom(mc::Vector{Int}, Nf, fit_m::Bool; conf=false)                       # Mutant fitness not given -> inferred 
 	est_res = zeros(Float64, 9)                                                         
 	log_likelihood_para_2(para) = -log_likelihood(mc, para[1], para[2])                 # 2 inference parameters: Number of mutations, mutant fitness
 	res = Optim.optimize(log_likelihood_para_2, [initial_m(mc, 1000), 1.]) 
@@ -154,6 +151,7 @@ end
 #        Alternatively, can be set as inference parameter(s) via fit_m=false
 #        If only one value is given, mutant fitness is constrained to be equal under permissive/stressful cond.
 #        To not constrain mutant fitness, values have to be given as a tuple (mutant fitness permissive cond., mutant fitness stressful cond.)
+# conf: Confidence intervals are calculated if conf=true
 function estimu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, fit_m::Float64=1.; conf=false)    # Mutant fitness set to input
     est_res = zeros(Float64, 21)
 	est_res_p = estimu_hom(mc_p, Nf_p, fit_m, conf=conf)     # Estimation for permissive cond.
@@ -173,7 +171,7 @@ function estimu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, fit_m::Boo
 	est_res = zeros(Float64, 21)
 	m_p, rho = estimate_init_hom(mc_p, false)                                                   
 	m_s = estimate_init_hom(mc_s)                                                                    
-	log_likelihood_para_3(para) = -log_likelihood(mc_p, para[1], mc_s, para[2], para[3])    # 3 inference parameters: Number of mutations under permissive/stressful cond., mutant fitness         
+	log_likelihood_para_3(para) = -log_likelihood(mc_p, para[1], mc_s, para[2], para[3])                # 3 inference parameters: Number of mutations under permissive/stressful cond., mutant fitness         
 	res = Optim.optimize(log_likelihood_para_3, [m_p, m_s, rho])                                      
 	if Optim.converged(res) == true
 		p = Optim.minimizer(res)
@@ -206,15 +204,15 @@ function estimu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, fit_m::Tup
         est_res = Vector{Float64}(undef, 21)
 		fit_m_p = fit_m[1]
         fit_m_s = fit_m[2]
-		est_res_p = estimu_hom(mc_p, Nf_p, fit_m_p, conf=conf)             # Estimation permissive cond.
-		est_res_s = estimu_hom(mc_s, Nf_s, fit_m_s, conf=conf)             # Estimation stressful cond.
+		est_res_p = estimu_hom(mc_p, Nf_p, fit_m_p, conf=conf)              # Estimation permissive cond.
+		est_res_s = estimu_hom(mc_s, Nf_s, fit_m_s, conf=conf)              # Estimation stressful cond.
         est_res[1:12] = [est_res_p[1:6]; est_res_s[1:6]]
-        if est_res_p[end] != Inf && est_res_s[end] != Inf       # Estimation under both conditions successful
+        if est_res_p[end] != Inf && est_res_s[end] != Inf                   # Estimation under both conditions successful
             est_res[13:15] = est_res_s[1:3] ./ [est_res_p[1], est_res_p[3], est_res_p[2]]
             est_res[16:18] = est_res_s[4:6] ./ [est_res_p[4], est_res_p[6], est_res_p[5]]
             est_res[19:20] = est_res_p[7:8] .+ est_res_s[7:8]
             est_res[21] = 2*(est_res_p[7]+est_res_s[7]) + (2+sum([typeof(fit_m_p),typeof(fit_m_s)].==Bool))*log(length(mc_p)+length(mc_s))
-        elseif est_res_p[end] != Inf && typeof(fit_m_s) == Bool # Estimation under stressful cond. failed -> set mutant fitness under stressful cond. to one
+        elseif est_res_p[end] != Inf && typeof(fit_m_s) == Bool             # Estimation under stressful cond. failed -> set mutant fitness under stressful cond. to one
             est_res_s = estimu_hom(mc_s, Nf_s, conf=conf)
             if est_res_s[end] != Inf
             est_res[7:12] = est_res_s[1:6]
@@ -224,7 +222,7 @@ function estimu_hom(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, fit_m::Tup
             est_res[20] = est_res_p[8] + est_res_s[8] + 2
             est_res[21] = 2*(est_res_p[7]+est_res_s[7]) + (3+(typeof(fit_m_p)==Bool))*log(length(mc_p)+length(mc_s))
             end
-        elseif est_res_s[end] != Inf && typeof(fit_m_p) == Bool # Estimation under permissive cond. failed -> set mutant fitness under permissive cond. to one
+        elseif est_res_s[end] != Inf && typeof(fit_m_p) == Bool             # Estimation under permissive cond. failed -> set mutant fitness under permissive cond. to one
             est_res_p = estimu_hom(mc_p, Nf_p, conf=conf)
             if est_res_p[end] != Inf 
                 est_res[1:6] = est_res_p[1:6]
@@ -246,16 +244,17 @@ end
 # mc_s: Mutant counts under stressful cond.
 # Nf_s: Average final population size under stressful cond.
 # Optional
-# f_on: Fraction of on-cells
-#       By default inferred, can be set to different value if known from separate experiment
 # rel_div_on: Relative division rate of on-cells compared to off-cells
 #             By default set to rel_div_on=0., inferred if rel_div_on=false
 #             For rel_div_on=0, the fraction of on-cells cannot be inferred
-function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Float64, rel_div_on::Float64=0.; conf=false) # Fraction and relative division rate of on-cells given
+# f_on: Fraction of on-cells
+#       By default not considered (for zero rel_div_on) or inferred (for non-zero rel_div_on)
+#       Can be set to different value if known from separate experiment
+function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Float64, rel_div_on::Float64=0.; conf=false)    # Fraction and relative division rate of on-cells given
     est_res = zeros(Float64, 24)	
-	m = estimate_init_hom(mc_p)*Nf_s/Nf_p                       # Initial value for optimisation   
+	m = estimate_init_hom(mc_p)*Nf_s/Nf_p                                                                                   # Initial value for optimisation   
     mu_het, div_init = estimate_init_het(mc_s, m, f_on, rel_div_on)                       
-    log_likelihood_para_2(para) = -log_likelihood(mc_p, mc_s, Nf_p/Nf_s, para[1], para[2], f_on, rel_div_on)    # 2 inference parameters: Number of mutations in off-cells, mutation-rate heterogeneity
+    log_likelihood_para_2(para) = -log_likelihood(mc_p, mc_s, Nf_p/Nf_s, para[1], para[2], f_on, rel_div_on)                # 2 inference parameters: Number of mutations in off-cells, mutation-supply ratio
     res = Optim.optimize(log_likelihood_para_2, [m, mu_het])                                                 
     if Optim.converged(res) == true
         p = Optim.minimizer(res)
@@ -282,12 +281,12 @@ function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Floa
     end   
     return est_res 
 end
-function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Float64, rel_div_on::Bool; conf=false)    # Relative division rate on-cells not given -> inferred
+function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Float64, rel_div_on::Bool; conf=false)  # Relative division rate on-cells not given -> inferred
     est_res = zeros(Float64, 24)	
 	m = estimate_init_hom(mc_p)*Nf_s/Nf_p  
     mu_het, rel_div_on = estimate_init_het(mc_s, m, f_on)
     log_likelihood_para_3(para) = -log_likelihood(mc_p, mc_s, Nf_p/Nf_s, para[1], para[2], f_on, para[3])     
-    res = Optim.optimize(log_likelihood_para_3, [m, mu_het, rel_div_on])                                    # 3 inference parameters: Number of mutations in off-cells, mutation-rate heterogeneity, relative division rate on-cells                         
+    res = Optim.optimize(log_likelihood_para_3, [m, mu_het, rel_div_on])                                            # 3 inference parameters: Number of mutations in off-cells, mutation-supply ratio, relative division rate on-cells                         
     if Optim.converged(res) == true
         p = Optim.minimizer(res)
         est_res[1] = p[1]/Nf_s
@@ -316,10 +315,10 @@ function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Floa
 end
 function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Bool, rel_div_on::Float64=0.; conf=false)   # Fraction of on-cells not given
     m = estimate_init_hom(mc_p)*Nf_s/Nf_p 
-    if rel_div_on == 0.                                                                                     # Zero relative division rate on-cells -> Fraction of on-cells cannot be inferred   
+    if rel_div_on == 0.                                                                                                 # Zero relative division rate on-cells -> Fraction of on-cells cannot be inferred   
         est_res = zeros(Float64, 9)
         log_likelihood_para_2(para) = -log_likelihood(mc_p, mc_s, Nf_p/Nf_s, para[1], para[2])     
-        res = Optim.optimize(log_likelihood_para_2, [m, initial_mu_het(mc_s, m, 1000)])                     # 2 inference parameters: Number of mutations in off-cells, mutation-rate heterogeneity
+        res = Optim.optimize(log_likelihood_para_2, [m, initial_mu_het(mc_s, m, 1000)])                                 # 2 inference parameters: Number of mutations in off-cells, mutation-supply ratio
         if Optim.converged(res) == true
             p = Optim.minimizer(res)
             est_res[1] = p[1]/Nf_s
@@ -343,12 +342,12 @@ function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Bool
         if f_upper <= 0.
             f_upper = 1/mu_inc
         end
-        f_lower = - log(1-f_upper) / log(Nf_s)                              # Initial value for optimisation                                                                                                                                                     
+        f_lower = - log(1-f_upper) / log(Nf_s)                                                              # Initial value for optimisation                                                                                                                                                     
         mu_het, div_init = estimate_init_het(mc_s, m, f_lower, div_init)                                        
         f_on = f_lower/(1 - rel_div_on)                                                                         
         f_on = minimum([maximum([f_lower, f_on]), f_upper])  
         log_likelihood_para_3(para) = -log_likelihood(mc_p, mc_s, Nf_p/Nf_s, para[1], para[2], para[3], rel_div_on)     
-        res = Optim.optimize(log_likelihood_para_3, [m, mu_het, f_on])                                              # 3 inference parameters: Number of mutations in off-cells, mutation-rate heterogeneity, fraction of on-cells                         
+        res = Optim.optimize(log_likelihood_para_3, [m, mu_het, f_on])                                      # 3 inference parameters: Number of mutations in off-cells, mutation-supply ratio, fraction of on-cells                         
         if Optim.converged(res) == true
             p = Optim.minimizer(res)
             est_res[1] = p[1]/Nf_s
@@ -376,7 +375,7 @@ function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Bool
     end
     return est_res 
 end
-function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Bool, rel_div_on::Bool; conf=false)    # Relative division rate on-cells and fraction of on-cells not given -> inferred
+function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Bool, rel_div_on::Bool; conf=false) # Relative division rate on-cells and fraction of on-cells not given -> inferred
     est_res = zeros(Float64, 24)
     m = estimate_init_hom(mc_p)*Nf_s/Nf_p    
     mu_het, rel_div_on = estimate_init_het(mc_s, m, 0.)                                   
@@ -390,7 +389,7 @@ function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Bool
     f_on = f_lower/(1 - rel_div_on)                                                                         
     f_on = minimum([maximum([f_lower, f_on]), f_upper])  
     log_likelihood_para_4(para) = -log_likelihood(mc_p, mc_s, Nf_p/Nf_s, para[1], para[2], para[3], para[4])     
-    res = Optim.optimize(log_likelihood_para_4, [m, mu_het, f_on, rel_div_on])                                    # 4 inference parameters: Number of mutations in off-cells, mutation-rate heterogeneity, relative division rate on-cells, fraction of on-cells                         
+    res = Optim.optimize(log_likelihood_para_4, [m, mu_het, f_on, rel_div_on])                                  # 4 inference parameters: Number of mutations in off-cells, mutation-supply ratio, relative division rate on-cells, fraction of on-cells                         
     if Optim.converged(res) == true
         p = Optim.minimizer(res)
         est_res[1] = p[1]/Nf_s
@@ -419,8 +418,13 @@ function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Bool
     return est_res
 end
 
-# Model selection
-function estimu_select(mc_p, Nf_p, mc_s, Nf_s; conf=false)      # Optional: Confidence intervals of selected model 
+# Two-step model selection procedure: likelihood-ratio test (LRT) + information criterion/cross-validation (CV)
+# (i) LRT within the homogeneous model class
+# (ii) LRT within the heterogeneous model class
+# (iii) AIC between best homogeneous/heterogeneous model
+# (iv) BIC between best homogeneous/heterogeneous model
+# (v) Cross-validation between best homogeneous/heterogeneous model (with correlation-adjusted selection rule)
+function estimu_select(mc_p, Nf_p, mc_s, Nf_s; conf=false)      # Optional: Confidence intervals of best homogeneous/heterogeneous model 
     selected_m = zeros(Int, 3)
     hom_1 = estimu_hom(mc_p, Nf_p, mc_s, Nf_s)                  # Model 1: Homogeneous model without differential mutant fitness
     hom_2 = estimu_hom(mc_p, Nf_p, mc_s, Nf_s, false)           # Model 2: Homogeneous model with constrained differential mutant fitness
@@ -515,10 +519,10 @@ function estimate_init_hom(mc::Vector{Int}, fit_m::Bool)                    # Mu
         return [estimate_init_hom(mc), 1.]
     end                                                                                                                                
 end
-# Estimating the mutation-rate heterogeneity for given number of mutations (under stressful cond.) and known fraction of on-cells
+# Estimating the mutation-supply ratio for given number of mutations (under stressful cond.) and known fraction of on-cells
 # Optional input parameter: Initial value for the relative division rate of on-cells
 function estimate_init_het(mc::Vector{Int}, m, f_on, rel_div_on=0.)                                       
-    log_likelihood_para_2(para) = -log_likelihood(mc, m, para[1], f_on, para[2])            # 2 inference parameters: Mutation-rate heterogeneity, relative division rate of on-cells                
+    log_likelihood_para_2(para) = -log_likelihood(mc, m, para[1], f_on, para[2])            # 2 inference parameters: Mutation-supply ratio, relative division rate of on-cells                
     res = Optim.optimize(log_likelihood_para_2, [initial_mu_het(mc, m, 1000), rel_div_on])          
     if Optim.converged(res) == true
         return Optim.minimizer(res)                                                                                                                    
@@ -1137,6 +1141,7 @@ function CI(mc_p::Vector{Int}, mc_s::Vector{Int}, N_ratio, m, mu_het, f_on, rel_
     return [l_1 u_1; l_2 u_2; l_3 u_3; l_4 u_4; minimum(m_on) maximum(m_on); minimum(mu_inc) maximum(mu_inc); minimum(del_mu) maximum(del_mu)]
 end
 
+# 10-fold cross-validation scores 
 function CV(mc::Vector{Int}, fit_m)
 	mc_9010 = copy(mc)
     scores = zeros(Float64, 10)
@@ -1300,7 +1305,7 @@ end
 
 # Probability generating function method used to set initial values of the maximum likelihood estimation, based on
 # Gillet-Markowska, A., Louvel, G., & Fischer, G. (2015). bz-rates: A web tool to estimate mutation rates from fluctuation analysis. G3: Genes, Genomes, Genetics, 5(11), 2323–2327. https://doi.org/10.1534/g3.115.019836
-function empirical_pgf(z, x) # Empirical probability generating function calculated from observed data
+function empirical_pgf(z, x)    # Empirical probability generating function calculated from observed data
     g = 0
     for i in x
         g += z^i
@@ -1308,7 +1313,7 @@ function empirical_pgf(z, x) # Empirical probability generating function calcula
     g /= length(x)
     return g
 end
-function empirical_cdf(x) # Empirical cumulative densitity function calculated from observed data
+function empirical_cdf(x)       # Empirical cumulative densitity function calculated from observed data
     y = counts(x, 0:maximum(x))
     for i = 2:length(y)
         y[i] += y[i-1]
@@ -1316,28 +1321,28 @@ function empirical_cdf(x) # Empirical cumulative densitity function calculated f
     z = y ./ y[end]
     return z
 end
-function initial_m(z, mc)                     # Estimate number of mutations for a homogeneous population and given z        
+function initial_m(z, mc)                       # Estimate number of mutations for a homogeneous population and given z        
     if z == 0.
         return log(empirical_pgf(z, mc)) 
     else
         return z/((1-z)*log(1-z)) * log(empirical_pgf(z, mc))
     end
 end
-function initial_m(mc, z_values::Int)         # Estimate number of mutations for a homogeneous population by averaging over a number of z values
+function initial_m(mc, z_values::Int)           # Estimate number of mutations for a homogeneous population by averaging over a number of z values
     m = 0.
     for i = 0:z_values-1
         m += initial_m(i/z_values, mc)
     end
     return maximum([m/z_values, 0.])
 end
-function initial_mu_het(z, mc, m)             # Estimate the mutation-rate heterogeneity for the heterogeneous-response model for given z   
+function initial_mu_het(z, mc, m)               # Estimate the mutation-supply ratio for the heterogeneous-response model for given z   
     if z == 0.
         return -log(empirical_pgf(z, mc))/m - 1
     else
         return -log(empirical_pgf(z, mc))/(m*(1-z)) + log(1-z)/z
     end
 end
-function initial_mu_het(mc, m, z_values::Int) # Estimate the mutation-rate heterogeneity for the heterogeneous-response model by averaging over a number of z values 
+function initial_mu_het(mc, m, z_values::Int)   # Estimate the mutation-supply ratio for the heterogeneous-response model by averaging over a number of z values 
     mu_het = 0.
     for i = 0:z_values-1
         mu_het += initial_mu_het(i/z_values, mc, m)
