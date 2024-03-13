@@ -281,3 +281,30 @@ function data_supplementary_material()
         simulate_fluctuation_assays("range-gamma_on-increase100", "range-alpha-"*f, set_seed=true, S1=true)
     end
 end
+
+
+function model_selection_length(r, num_c, r2=["", 1, "/"])
+    c = num_c
+    range, J, r_parameter = r
+    range_2, J2, r2_parameter = r2
+    for j2 = 1:J2
+        if range_2 == ""
+            suffix = "/"
+        else
+            suffix = "-$(r2_parameter)_$j2/"
+        end
+        for j = 1:J
+            est_res = DataFrame(CSV.File("inferred_parameters/"*range_2*range*suffix*"het_zero-div_unknown-f-number_cultures_$c-$(r_parameter)_$j.csv"))
+            LL = est_res[7,:]
+            AIC = est_res[8,:]
+            BIC = est_res[9,:]
+            for i = 1:(3*4)
+                push!(est_res, zeros(Float64, 100))
+            end
+            push!(est_res, LL)
+            push!(est_res, AIC)
+            push!(est_res, BIC)
+            CSV.write("inferred_parameters/"*range_2*range*suffix*"het_zero-div_unknown-f-number_cultures_$c-$(r_parameter)_$j.csv", est_res)
+        end
+    end
+end

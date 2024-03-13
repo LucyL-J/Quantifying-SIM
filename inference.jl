@@ -316,23 +316,23 @@ end
 function estimu_het(mc_p::Vector{Int}, Nf_p, mc_s::Vector{Int}, Nf_s, f_on::Bool, rel_div_on::Float64=0.; conf=false)   # Fraction of on-cells not given
     m = estimate_init_hom(mc_p)*Nf_s/Nf_p 
     if rel_div_on == 0.                                                                                                 # Zero relative division rate on-cells -> Fraction of on-cells cannot be inferred   
-        est_res = zeros(Float64, 9)
+        est_res = zeros(Float64, 24)
         log_likelihood_para_2(para) = -log_likelihood(mc_p, mc_s, Nf_p/Nf_s, para[1], para[2])     
         res = Optim.optimize(log_likelihood_para_2, [m, initial_mu_het(mc_s, m, 1000)])                                 # 2 inference parameters: Number of mutations in off-cells, mutation-supply ratio
         if Optim.converged(res) == true
             p = Optim.minimizer(res)
             est_res[1] = p[1]/Nf_s
             est_res[4] = p[2]
-            est_res[7] = Optim.minimum(res)
-            est_res[8] = 2*Optim.minimum(res) + 4
-            est_res[9] = 2*Optim.minimum(res) + 2*log(length(mc_p)+length(mc_s))
+            est_res[22] = Optim.minimum(res)
+            est_res[23] = 2*Optim.minimum(res) + 4
+            est_res[24] = 2*Optim.minimum(res) + 2*log(length(mc_p)+length(mc_s))
             if conf
                 b = CI(mc_p, mc_s, Nf_p/Nf_s, p[1], p[2], Optim.minimum(res))
                 est_res[2:3] = b[1,:]./Nf_s
                 est_res[5:6] = b[2,:]
             end                                                            
         else
-            est_res[7:9] = [Inf,Inf,Inf]
+            est_res[22:24] = [Inf,Inf,Inf]
         end
     else                                                                                                    # Non-zero relative division rate on-cells -> Fraction of on-cells inferred
         est_res = zeros(Float64, 24)
@@ -459,13 +459,13 @@ function estimu_select(mc_p, Nf_p, mc_s, Nf_s; conf=false)      # Optional: Conf
     het = [4, 2]                                                # Null hypothesis: Model 4
     IC_het = [Inf, Inf]                                         # (Akaike/Baysian) Information criterion of model selected by LRT
     score_CV_het = Vector{Float64}(undef, 10)                   # Score used for cross-validation
-    if het_4[7] - het_5[22] > chisq_2_95/2                      # LRT between model 4 and 5 (difference in number of parameters is two)
+    if het_4[22] - het_5[22] > chisq_2_95/2                      # LRT between model 4 and 5 (difference in number of parameters is two)
         het = [5, 4]
         IC_het = het_5[23:24]
         het_5 = estimu_het(mc_p, Nf_p, mc_s, Nf_s, false, false, conf=conf)
         score_CV_het = CV(mc_p, mc_s, Nf_p/Nf_s, het_5[7], true)
     else
-        IC_het = het_4[8:9]
+        IC_het = het_4[23:24]
         het_4 = estimu_het(mc_p, Nf_p, mc_s, Nf_s, false, conf=conf)
         score_CV_het = CV(mc_p, mc_s, Nf_p/Nf_s)
     end
