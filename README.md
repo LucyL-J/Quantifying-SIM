@@ -209,7 +209,7 @@ If the inference fails, an infinte log-likelihood is returned.
 
 Evaluating the estimation function (by default, the mutant fitness is set to 1)
 ```
-res = estimate_mu_hom(mc_p, 10^8, mc_s, 1.6*10^7)
+estimu_hom(mc_p, 10^8, mc_s, 1.6*10^7)
 ```
 yields the following output
 ```
