@@ -282,8 +282,7 @@ function data_supplementary_material()
     end
 end
 
-
-function model_selection_length(r, num_c, r2=["", 1, "/"])
+function model_selection_constr(r, num_c, r2=["", 1, "/"])
     c = num_c
     range, J, r_parameter = r
     range_2, J2, r2_parameter = r2
@@ -294,17 +293,55 @@ function model_selection_length(r, num_c, r2=["", 1, "/"])
             suffix = "-$(r2_parameter)_$j2/"
         end
         for j = 1:J
-            est_res = DataFrame(CSV.File("inferred_parameters/"*range_2*range*suffix*"het_zero-div_unknown-f-number_cultures_$c-$(r_parameter)_$j.csv"))
-            LL = est_res[7,:]
-            AIC = est_res[8,:]
-            BIC = est_res[9,:]
-            for i = 1:(3*4)
-                push!(est_res, zeros(Float64, 100))
+            est_res_1 = Matrix(DataFrame(CSV.File("inferred_parameters/"*range_2*range*suffix*"hom_wo-fitm-number_cultures_$c-$(r_parameter)_$j.csv")))[19:21,:]
+            est_res_2 = Matrix(DataFrame(CSV.File("inferred_parameters/"*range_2*range*suffix*"hom_fitm-number_cultures_$c-$(r_parameter)_$j.csv")))[19:21,:]
+            est_res_3 = Matrix(DataFrame(CSV.File("inferred_parameters/"*range_2*range*suffix*"hom_fitm-unconstr-number_cultures_$c-$(r_parameter)_$j.csv")))[19:21,:]
+            est_res_4 = Matrix(DataFrame(CSV.File("inferred_parameters/"*range_2*range*suffix*"het_zero-div_unknown-f-number_cultures_$c-$(r_parameter)_$j.csv")))[22:24,:]
+            est_res_5 = Matrix(DataFrame(CSV.File("inferred_parameters/"*range_2*range*suffix*"het_infer-div_unknown-f-number_cultures_$c-$(r_parameter)_$j.csv")))[22:24,:]
+            selected_m = DataFrame(CSV.File("inferred_parameters/"*range_2*range*suffix*"selected_model-number_cultures_$c-$(r_parameter)_$j.csv"))
+            LRT_hom = Vector(selected_m[1,:])
+            LRT_het = Vector(selected_m[2,:])
+            LRT_AIC = Vector(selected_m[3,:])
+            LRT_BIC = Vector(selected_m[4,:])
+            LRT_CV = Vector(selected_m[5,:])
+            for i = 1:100
+                if est_res_1[1,i] - est_res_2[1,i] > chisq_1_95/2
+                    hom = est_res_2[2:3,i]
+                    hom_arg = 2
+                    selected_m[1,i] = 2
+                else
+                    hom = est_res_1[2:3,i]
+                    hom_arg = 1
+                    selected_m[1,i] = 1
+                end
+                if LRT_het[i] == 4
+                    het = est_res_4[2:3,i]
+                    het_arg = 4
+                else
+                    het = est_res_5[2:3,i]
+                    het_arg = 5
+                end 
+                if het[1] - hom[1] < -2
+                    selected_m[4,i] = het_arg
+                elseif het[1] - hom[1] > 2
+                    selected_m[4,i] = hom_arg
+                else
+                    selected_m[4,i] = 0
+                end
+                if het[2] - hom[2] < -2
+                    selected_m[5,i] = het_arg
+                elseif het[2] - hom[2] > 2
+                    selected_m[5,i] = hom_arg
+                else
+                    selected_m[5,i] = 0
+                end
             end
-            push!(est_res, LL)
-            push!(est_res, AIC)
-            push!(est_res, BIC)
-            CSV.write("inferred_parameters/"*range_2*range*suffix*"het_zero-div_unknown-f-number_cultures_$c-$(r_parameter)_$j.csv", est_res)
+            selected_m[2,:] = LRT_hom
+            selected_m[3,:] = LRT_het
+            push!(selected_m, LRT_AIC)
+            push!(selected_m, LRT_BIC)
+            push!(selected_m, LRT_CV)
+            CSV.write("inferred_parameters/"*range_2*range*suffix*"selected_model-number_cultures_$c-$(r_parameter)_$j.csv", selected_m)
         end
     end
 end
