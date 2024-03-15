@@ -425,7 +425,7 @@ end
 # (iv) BIC between best homogeneous/heterogeneous model
 # (v) Cross-validation between best homogeneous/heterogeneous model (with correlation-adjusted selection rule)
 function estimu_select(mc_p, Nf_p, mc_s, Nf_s; conf=false)      # Optional: Confidence intervals of best homogeneous/heterogeneous model 
-    selected_m = zeros(Int, 3)
+    selected_m = zeros(Int, 5)
     hom_1 = estimu_hom(mc_p, Nf_p, mc_s, Nf_s)                  # Model 1: Homogeneous model without differential mutant fitness
     hom_2 = estimu_hom(mc_p, Nf_p, mc_s, Nf_s, false)           # Model 2: Homogeneous model with constrained differential mutant fitness
     hom_3 = estimu_hom(mc_p, Nf_p, mc_s, Nf_s, (false,false))   # Model 3: Homogeneous model with unconstrained differential mutant fitness
@@ -433,6 +433,10 @@ function estimu_select(mc_p, Nf_p, mc_s, Nf_s; conf=false)      # Optional: Conf
     IC_hom = [Inf, Inf]                                         # (Akaike/Baysian) Information criterion of model selected by LRT
     score_CV_hom = Vector{Float64}(undef, 10)                   # Score used for cross-validation
     if hom_1[19] - hom_2[19] > chisq_1_95/2                     # LRT between model 1 and 2
+        hom_constr = [2, 3]
+        IC_hom_constr = hom_2[20:21]
+        hom_2 = estimu_hom(mc_p, Nf_p, mc_s, Nf_s, false, conf=conf)
+        score_CV_hom_constr = CV(mc_p, mc_s)
         if hom_2[19] - hom_3[19] > chisq_1_95/2                 # LRT between model 2 and 3
             hom = [3, 4]
             IC_hom = hom_3[20:21]
@@ -441,25 +445,28 @@ function estimu_select(mc_p, Nf_p, mc_s, Nf_s; conf=false)      # Optional: Conf
         else
             hom = [2, 3]
             IC_hom = hom_2[20:21]
-            hom_2 = estimu_hom(mc_p, Nf_p, mc_s, Nf_s, false, conf=conf)
             score_CV_hom = CV(mc_p, mc_s)
         end
-    elseif hom_1[19] - hom_3[19] > chisq_2_95/2                 # LRT between model 1 and 3 (difference in number of parameters is two)
-        hom = [3, 4]
-        IC_hom = hom_3[20:21]
-        hom_3 = estimu_hom(mc_p, Nf_p, mc_s, Nf_s, (false,false), conf=conf)
-        score_CV_hom = CV(mc_p) .+ CV(mc_s)
     else
-        IC_hom = hom_1[20:21]
+        IC_hom_constr = hom_1[20:21]
         hom_1 = estimu_hom(mc_p, Nf_p, mc_s, Nf_s, conf=conf)
-        score_CV_hom = CV(mc_p, 1.) .+ CV(mc_s, 1.)
+        score_CV_hom_constr = CV(mc_p, 1.) .+ CV(mc_s, 1.)
+        if hom_1[19] - hom_3[19] > chisq_2_95/2                 # LRT between model 1 and 3 (difference in number of parameters is two)
+            hom = [3, 4]
+            IC_hom = hom_3[20:21]
+            hom_3 = estimu_hom(mc_p, Nf_p, mc_s, Nf_s, (false,false), conf=conf)
+            score_CV_hom = CV(mc_p) .+ CV(mc_s)
+        else
+            IC_hom = hom_1[20:21]
+            score_CV_hom = CV(mc_p, 1.) .+ CV(mc_s, 1.)
+        end
     end
     het_4 = estimu_het(mc_p, Nf_p, mc_s, Nf_s, false)           # Model 4: Heterogeneous model with zero division rate of on-cells
     het_5 = estimu_het(mc_p, Nf_p, mc_s, Nf_s, false, false)    # Model 5: Heterogeneous model with non-zero division rate of on-cells
     het = [4, 2]                                                # Null hypothesis: Model 4
     IC_het = [Inf, Inf]                                         # (Akaike/Baysian) Information criterion of model selected by LRT
     score_CV_het = Vector{Float64}(undef, 10)                   # Score used for cross-validation
-    if het_4[22] - het_5[22] > chisq_2_95/2                      # LRT between model 4 and 5 (difference in number of parameters is two)
+    if het_4[22] - het_5[22] > chisq_2_95/2                     # LRT between model 4 and 5 (difference in number of parameters is two)
         het = [5, 4]
         IC_het = het_5[23:24]
         het_5 = estimu_het(mc_p, Nf_p, mc_s, Nf_s, false, false, conf=conf)
@@ -469,34 +476,44 @@ function estimu_select(mc_p, Nf_p, mc_s, Nf_s; conf=false)      # Optional: Conf
         het_4 = estimu_het(mc_p, Nf_p, mc_s, Nf_s, false, conf=conf)
         score_CV_het = CV(mc_p, mc_s, Nf_p/Nf_s)
     end
-    if IC_het[1] - IC_hom[1] < -2                               # Model selection using AIC
-        selected_m[1] = het[1]
+    if IC_het[1] - IC_hom[1] < -2               # Model selection using AIC
+        selected_m[3] = het[1]
     elseif IC_het[1] - IC_hom[1] > 2
-        selected_m[1] = hom[1]
+        selected_m[3] = hom[1]
     end
-    if IC_het[2] - IC_hom[2] < -2                               # Model selection using BIC                             
-        selected_m[2] = het[1]
+    if IC_het[1] - IC_hom_constr[1] < -2        # with constrained mutant fitness
+        selected_m[1] = het[1]
+    elseif IC_het[1] - IC_hom_constr[1] > 2
+        selected_m[1] = hom_constr[1]
+    end
+    if IC_het[2] - IC_hom[2] < -2               # Model selection using BIC                             
+        selected_m[4] = het[1]
     elseif IC_het[2] - IC_hom[2] > 2
-        selected_m[2] = hom[1]
+        selected_m[4] = hom[1]
     end
-    if mean(score_CV_het) < mean(score_CV_hom)                  # Model selection using CV
+    if IC_het[2] - IC_hom_constr[2] < -2        # with constrained mutant fitness                           
+        selected_m[2] = het[1]
+    elseif IC_het[2] - IC_hom_constr[2] > 2
+        selected_m[2] = hom_constr[1]
+    end
+    if mean(score_CV_het) < mean(score_CV_hom)  # Model selection using CV
         if het[2] < hom[2] || mean(score_CV_het) + std(score_CV_het)*(1-cor(score_CV_het,score_CV_hom))^0.5 < mean(score_CV_hom)
-            selected_m[3] = het[1]
+            selected_m[5] = het[1]
         elseif het[2] == hom[2] && mean(score_CV_het) + std(score_CV_het)*(1-cor(score_CV_het,score_CV_hom))^0.5 >= mean(score_CV_hom)
-            selected_m[3] = 0
+            selected_m[5] = 0
         else
-            selected_m[3] = hom[1]
+            selected_m[5] = hom[1]
         end
     else
         if hom[2] < het[2] || mean(score_CV_hom) + std(score_CV_hom)*(1-cor(score_CV_het,score_CV_hom))^0.5 < mean(score_CV_het)
-            selected_m[3] = hom[1]
+            selected_m[5] = hom[1]
         elseif hom[2] == het[2] && mean(score_CV_hom) + std(score_CV_hom)*(1-cor(score_CV_het,score_CV_hom))^0.5 >= mean(score_CV_het)
-            selected_m[3] = 0
+            selected_m[5] = 0
         else
-            selected_m[3] = het[1]
+            selected_m[5] = het[1]
         end
     end
-    return hom_1, hom_2, hom_3, het_4, het_5, [[hom[1], het[1]]; selected_m]
+    return hom_1, hom_2, hom_3, het_4, het_5, [[hom_constr[1], hom[1], het[1]]; selected_m]
 end
 
 # Inference functions to calculate initial parameters for the joint ML estimation
