@@ -430,7 +430,9 @@ function estimu_select(mc_p, Nf_p, mc_s, Nf_s; conf=false)      # Optional: Conf
     hom_2 = estimu_hom(mc_p, Nf_p, mc_s, Nf_s, false)           # Model 2: Homogeneous model with constrained differential mutant fitness
     hom_3 = estimu_hom(mc_p, Nf_p, mc_s, Nf_s, (false,false))   # Model 3: Homogeneous model with unconstrained differential mutant fitness
     hom = [1, 2]                                                # Null hypothesis: Model 1 (with 2 parameters)
+    hom_constr = [1, 2] 
     IC_hom = [Inf, Inf]                                         # (Akaike/Baysian) Information criterion of model selected by LRT
+    IC_hom_constr = [Inf, Inf]
     score_CV_hom = Vector{Float64}(undef, 10)                   # Score used for cross-validation
     if hom_1[19] - hom_2[19] > chisq_1_95/2                     # LRT between model 1 and 2
         hom_constr = [2, 3]
