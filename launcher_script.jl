@@ -91,6 +91,8 @@ function simulate_fluctuation_assays(range, range_2=""; set_seed=false, S1=false
                 mutation_off_s = 10^r
             elseif r_parameter == "rho"
                 fitness_m_p, fitness_m_s = r, r
+            elseif r_parameter == "log_alpha"
+                switching = 10^r
             end
             if S1 == true
                 t1 = t_first_m(N0, division_off-switching-death_off, mutation_off_s*(1-f0_on)+mutation_on*f0_on)
@@ -259,8 +261,10 @@ function data_inference_manuscript()
     for i in [10, 100]
         simulate_fluctuation_assays("range-gamma_on-increase$i", set_seed=true)
     end
+    simulate_fluctuation_assays("range-alpha-f0", set_seed=true)
     infer_mutation_rates("range-gamma_on-increase10", "model_selection", [50], conf=true)
     infer_mutation_rates("range-gamma_on-increase100", "model_selection", [50,20,10], conf=true)
+    infer_mutation_rates("range-alpha-f0", "model_selection", [50], conf=true)
     for mod in ["het_zero-div", "het_set-div", "het_infer-div"]
         infer_mutation_rates("range-gamma_on-increase100", mod, [50], conf=true)
     end
@@ -279,69 +283,5 @@ function data_supplementary_material()
     # Simulating response-on non-mutants stochastically to test assumption S1
     for f in ["f0", "fstat"]
         simulate_fluctuation_assays("range-gamma_on-increase100", "range-alpha-"*f, set_seed=true, S1=true)
-    end
-end
-
-function model_selection_constr(r, num_c, r2=["", 1, "/"])
-    c = num_c
-    range, J, r_parameter = r
-    range_2, J2, r2_parameter = r2
-    for j2 = 1:J2
-        if range_2 == ""
-            suffix = "/"
-        else
-            suffix = "-$(r2_parameter)_$j2/"
-        end
-        for j = 1:J
-            est_res_1 = Matrix(DataFrame(CSV.File("inferred_parameters/"*range_2*range*suffix*"hom_wo-fitm-number_cultures_$c-$(r_parameter)_$j.csv")))[19:21,:]
-            est_res_2 = Matrix(DataFrame(CSV.File("inferred_parameters/"*range_2*range*suffix*"hom_fitm-number_cultures_$c-$(r_parameter)_$j.csv")))[19:21,:]
-            est_res_3 = Matrix(DataFrame(CSV.File("inferred_parameters/"*range_2*range*suffix*"hom_fitm-unconstr-number_cultures_$c-$(r_parameter)_$j.csv")))[19:21,:]
-            est_res_4 = Matrix(DataFrame(CSV.File("inferred_parameters/"*range_2*range*suffix*"het_zero-div_unknown-f-number_cultures_$c-$(r_parameter)_$j.csv")))[22:24,:]
-            est_res_5 = Matrix(DataFrame(CSV.File("inferred_parameters/"*range_2*range*suffix*"het_infer-div_unknown-f-number_cultures_$c-$(r_parameter)_$j.csv")))[22:24,:]
-            selected_m = DataFrame(CSV.File("inferred_parameters/"*range_2*range*suffix*"selected_model-number_cultures_$c-$(r_parameter)_$j.csv"))
-            LRT_hom = Vector(selected_m[1,:])
-            LRT_het = Vector(selected_m[2,:])
-            LRT_AIC = Vector(selected_m[3,:])
-            LRT_BIC = Vector(selected_m[4,:])
-            LRT_CV = Vector(selected_m[5,:])
-            for i = 1:100
-                if est_res_1[1,i] - est_res_2[1,i] > chisq_1_95/2
-                    hom = est_res_2[2:3,i]
-                    hom_arg = 2
-                    selected_m[1,i] = 2
-                else
-                    hom = est_res_1[2:3,i]
-                    hom_arg = 1
-                    selected_m[1,i] = 1
-                end
-                if LRT_het[i] == 4
-                    het = est_res_4[2:3,i]
-                    het_arg = 4
-                else
-                    het = est_res_5[2:3,i]
-                    het_arg = 5
-                end 
-                if het[1] - hom[1] < -2
-                    selected_m[4,i] = het_arg
-                elseif het[1] - hom[1] > 2
-                    selected_m[4,i] = hom_arg
-                else
-                    selected_m[4,i] = 0
-                end
-                if het[2] - hom[2] < -2
-                    selected_m[5,i] = het_arg
-                elseif het[2] - hom[2] > 2
-                    selected_m[5,i] = hom_arg
-                else
-                    selected_m[5,i] = 0
-                end
-            end
-            selected_m[2,:] = LRT_hom
-            selected_m[3,:] = LRT_het
-            push!(selected_m, LRT_AIC)
-            push!(selected_m, LRT_BIC)
-            push!(selected_m, LRT_CV)
-            CSV.write("inferred_parameters/"*range_2*range*suffix*"selected_model-number_cultures_$c-$(r_parameter)_$j.csv", selected_m)
-        end
     end
 end
