@@ -295,4 +295,3 @@ yielding
  155.1011466736709
 ```
 with an estimated increase in population mean mutation rate of $\approx 3.4$-fold within $[1.7, 6.0]$ and a mutant fitness of $\approx 0.73$ within $[0.43, 1.27]$. However, this model version fits the data worse.
-## Simulating fluctuation assays
