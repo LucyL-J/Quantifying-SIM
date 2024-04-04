@@ -1,6 +1,6 @@
-import Pkg
-#Pkg.activate("packages")
+#import Pkg
 #Pkg.instantiate()
+#Pkg.activate("packages")
 include("population_dynamics.jl")
 include("inference.jl")
 try
@@ -91,6 +91,8 @@ function simulate_fluctuation_assays(range, range_2=""; set_seed=false, S1=false
                 mutation_off_s = 10^r
             elseif r_parameter == "rho"
                 fitness_m_p, fitness_m_s = r, r
+            elseif r_parameter == "log_alpha"
+                switching = 10^r
             end
             if S1 == true
                 t1 = t_first_m(N0, division_off-switching-death_off, mutation_off_s*(1-f0_on)+mutation_on*f0_on)
@@ -110,8 +112,8 @@ function simulate_fluctuation_assays(range, range_2=""; set_seed=false, S1=false
             j += 1
         end
         if S1 == true
-            CSV.write("output_data/"*range_2*"n_t1-"*range*"_$(r2_parameter)_$j2.csv", n_t1)
-            CSV.write("output_data/"*range_2*"n_tf-"*range*"_$(r2_parameter)_$j2.csv", n_tf)
+            CSV.write("output_data/"*range_2*"n_t1-"*range*"-$(r2_parameter)_$j2.csv", n_t1)
+            CSV.write("output_data/"*range_2*"n_tf-"*range*"-$(r2_parameter)_$j2.csv", n_tf)
             j2 += 1
         else
             T_p = t_expected_m(N0, division_off, mutation_off_p, 0., 0, 0., 0., expected_M)
@@ -122,8 +124,8 @@ function simulate_fluctuation_assays(range, range_2=""; set_seed=false, S1=false
                 CSV.write("output_data/mutant_counts-"*range*".csv", mutant_counts)
                 CSV.write("output_data/p_final-"*range*".csv", p_final)
             else
-                CSV.write("output_data/"*range_2*"mutant_counts-"*range*"_$(r2_parameter)_$j2.csv", mutant_counts)
-                CSV.write("output_data/"*range_2*"p_final-"*range*"_$(r2_parameter)_$j2.csv", p_final)
+                CSV.write("output_data/"*range_2*"mutant_counts-"*range*"-$(r2_parameter)_$j2.csv", mutant_counts)
+                CSV.write("output_data/"*range_2*"p_final-"*range*"-$(r2_parameter)_$j2.csv", p_final)
                 j2 += 1
             end
         end
@@ -204,11 +206,11 @@ function infer_mutation_rates(range, mod, num_cultures, range_2=""; conf=false)
                     elseif mod == "het_infer-div"
                         est_res[:,"$i"] = estimu_het(mc_p[n+(i-1)*c:n-1+i*c], Nf_p, mc_s[n+(i-1)*c:n-1+i*c], Nf_s, f_on, false, conf=conf)
                     elseif mod == "model_selection"
-                        hom_1, hom_3, hom_4, het_2, het_5, selected_m = estimu_select(mc_p[n+(i-1)*c:n-1+i*c], Nf_p, mc_s[n+(i-1)*c:n-1+i*c], Nf_s)
+                        hom_1, hom_2, hom_3, het_4, het_5, selected_m = estimu_select(mc_p[n+(i-1)*c:n-1+i*c], Nf_p, mc_s[n+(i-1)*c:n-1+i*c], Nf_s, conf=conf)
                         est_res_1[:,"$i"] = hom_1
-                        est_res_2[:,"$i"] = het_2
+                        est_res_2[:,"$i"] = hom_2
                         est_res_3[:,"$i"] = hom_3
-                        est_res_4[:,"$i"] = hom_4
+                        est_res_4[:,"$i"] = het_4
                         est_res_5[:,"$i"] = het_5
                         selected_model[:, "$i"] = selected_m
                     end
@@ -216,9 +218,9 @@ function infer_mutation_rates(range, mod, num_cultures, range_2=""; conf=false)
                 if mod == "model_selection"
                     #selected_model.Criterion = ["LRT (hom)", "LRT (het)", "AIC", "BIC", "CV"]
                     CSV.write("inferred_parameters/"*range_2*range*suffix*"hom_wo-fitm-number_cultures_$c-$(r_parameter)_$j.csv", est_res_1)
-                    CSV.write("inferred_parameters/"*range_2*range*suffix*"het_zero-div_unknown-f-number_cultures_$c-$(r_parameter)_$j.csv", est_res_2)
-                    CSV.write("inferred_parameters/"*range_2*range*suffix*"hom_fitm-number_cultures_$c-$(r_parameter)_$j.csv", est_res_3)
-                    CSV.write("inferred_parameters/"*range_2*range*suffix*"hom_fitm-unconstr-number_cultures_$c-$(r_parameter)_$j.csv", est_res_4)
+                    CSV.write("inferred_parameters/"*range_2*range*suffix*"hom_fitm-number_cultures_$c-$(r_parameter)_$j.csv", est_res_2)
+                    CSV.write("inferred_parameters/"*range_2*range*suffix*"hom_fitm-unconstr-number_cultures_$c-$(r_parameter)_$j.csv", est_res_3)
+                    CSV.write("inferred_parameters/"*range_2*range*suffix*"het_zero-div_unknown-f-number_cultures_$c-$(r_parameter)_$j.csv", est_res_4)
                     CSV.write("inferred_parameters/"*range_2*range*suffix*"het_infer-div_unknown-f-number_cultures_$c-$(r_parameter)_$j.csv", est_res_5)
                     CSV.write("inferred_parameters/"*range_2*range*suffix*"selected_model-number_cultures_$c-$(r_parameter)_$j.csv", selected_model)
                 else
@@ -234,44 +236,51 @@ end
 # Reproduce all data in the manuscript
 
 function data_inference_manuscript()
-    # Parameter regime: mutation-rate increase x relative switching rate
-    # Estimation method: heterogeneous-response model with setting the relative division rate of response-on cells to zero (known fraction of response-on subpopulation)
+    # Parameter regime: mutation-rate increase (x relative switching rate)
+    # Estimation method: heterogeneous-response model with zero division rate of on-cells (known fraction)
     simulate_fluctuation_assays("range-nu_on", "range-alpha-f0", set_seed=true)
     infer_mutation_rates("range-nu_on", "het_zero-div", [50,20,10], "range-alpha-f0", conf=true)
+    simulate_fluctuation_assays("range-nu_on", set_seed=true)
+    infer_mutation_rates("range-nu_on", "het_zero-div", [50,25,12,6,3])
 
     # Parameter regime: death rate of response-off x -on cells, for switching rates 0.01 and 0.05
-    # Estimation method: heterogeneous-response model with setting the relative division rate of response-on cells to zero (known fraction of response-on subpopulation)
+    # Estimation method: heterogeneous-response model with zero division rate of on-cells (known fraction)
     for i in [1, 5]
         simulate_fluctuation_assays("range-delta_off-alpha$i", "range-delta_on-alpha$i", set_seed=true)
         infer_mutation_rates("range-delta_off-alpha$i", "het_zero-div", [50], "range-delta_on-alpha$i")
     end
 
     # Parameter regime: differential fitness of response-off mutants
-    # Estimation method: heterogeneous-response model with setting the relative division rate of response-on cells to zero (known fraction of response-on subpopulation)
+    # Estimation method: heterogeneous-response model with zero division rate of on-cells (known fraction)
     simulate_fluctuation_assays("range-rho", set_seed=true)
     infer_mutation_rates("range-rho", "het_zero-div", [50])
 
     # Parameter regime: relative division rate of response-on cells
     # Estimation methods
-    # (i) Heterogeneous-response model with setting the relative division rate of response-on cells to zero/true value or inferring it (known fraction of response-on subpopulation)
-    # (ii) Heterogeneous-response model with setting the relative division rate of response-on cells to zero or inferring it (unknown fraction of response-on subpopulation)
-    # (iii) Homogeneous-response model without/with/jointly inferring the differential fitness of mutants
+    # (i) Heterogeneous-response model with zero division rate of on-cells/true value or inferring it (known fraction)
+    # (ii) Model selection between heterogeneous and homogeneous-response models
     for i in [10, 100]
         simulate_fluctuation_assays("range-gamma_on-increase$i", set_seed=true)
     end
-    infer_mutation_rates("range-gamma_on-increase10", "model_selection", [50])
-    infer_mutation_rates("range-gamma_on-increase100", "model_selection", [50,20,10])
+    infer_mutation_rates("range-gamma_on-increase10", "model_selection", [50], conf=true)
+    infer_mutation_rates("range-gamma_on-increase100", "model_selection", [50,20,10], conf=true)
     for mod in ["het_zero-div", "het_set-div", "het_infer-div"]
         infer_mutation_rates("range-gamma_on-increase100", mod, [50], conf=true)
     end
 
     # Parameter regime: mutation rate of response-off cells x differential fitness of response-off mutants (homogeneous response)
-    # (i) Heterogeneous-response model with setting the relative division rate of response-on cells to zero or inferring it (unknown fraction of response-on subpopulation)
-    # (ii) Homogeneous-response model without/with/jointly inferring the differential fitness of mutants
+    # Model selection between heterogeneous and homogeneous-response models
     for i in ["", "_unconstr"]
         simulate_fluctuation_assays("range-nu_off_s", "range-rho"*i, set_seed=true)
-        infer_mutation_rates("range-nu_off_s", "model_selection", [50], "range-rho"*i)
+        infer_mutation_rates("range-nu_off_s", "model_selection", [50], "range-rho"*i, conf=true)
     end
+
+    # Parameter regime: Relative switching rate of response-on cells
+    # Estimation methods
+    # (i) Heterogeneous-response model with zero division rate of on-cells/true value or inferring it (known fraction)
+    # (ii) Model selection between heterogeneous and homogeneous-response models
+    simulate_fluctuation_assays("range-alpha-f0", set_seed=true)
+    infer_mutation_rates("range-alpha-f0", "model_selection", [50], conf=true)
 end
 
 function data_supplementary_material()
@@ -280,102 +289,4 @@ function data_supplementary_material()
     for f in ["f0", "fstat"]
         simulate_fluctuation_assays("range-gamma_on-increase100", "range-alpha-"*f, set_seed=true, S1=true)
     end
-end
-
-function rerun(inc, num_c)
-mc_bound = 1000
-mutant_counts = DataFrame(CSV.File("output_data/mutant_counts-range-gamma_on-increase$inc.csv"))
-p_final = DataFrame(CSV.File("output_data/p_final-range-gamma_on-increase$inc.csv"))
-mc_p = mutant_counts[:,end]
-mc_p = mc_p[mc_p .< mc_bound]
-Nf_p = p_final[1,end]
-n = 1
-for c in num_c
-    for j = 1:21
-        selected_model = DataFrame()
-        selected_m = zeros(Int, (5,100))
-        mc_s = mutant_counts[:,j]
-        mc_s = mc_s[mc_s .< mc_bound]
-        Nf_s = p_final[1,j]
-        est_res_1 = Matrix(DataFrame(CSV.File("inferred_parameters/range-gamma_on-increase$inc/hom_wo-fitm-number_cultures_$c-gamma_on_$j.csv")))
-        est_res_2 = Matrix(DataFrame(CSV.File("inferred_parameters/range-gamma_on-increase$inc/hom_fitm-number_cultures_$c-gamma_on_$j.csv")))
-        est_res_3 = Matrix(DataFrame(CSV.File("inferred_parameters/range-gamma_on-increase$inc/hom_fitm-unconstr-number_cultures_$c-gamma_on_$j.csv")))
-        est_res_4 = Matrix(DataFrame(CSV.File("inferred_parameters/range-gamma_on-increase$inc/het_zero-div_unknown-f-number_cultures_$c-gamma_on_$j.csv")))
-        est_res_5 = Matrix(DataFrame(CSV.File("inferred_parameters/range-gamma_on-increase$inc/het_infer-div_unknown-f-number_cultures_$c-gamma_on_$j.csv")))
-        sel_m = Matrix(DataFrame(CSV.File("inferred_parameters/range-gamma_on-increase$inc/selected_model-number_cultures_$c-gamma_on_$j.csv")))
-        for i = 1:100
-            while (sum(mc_p[n+(i-1)*c:n-1+i*c]) == 0) || (sum(mc_s[n+(i-1)*c:n-1+i*c]) == 0)
-                n += c
-            end
-            hom = [1, 2]
-            ABIC_hom = [Inf, Inf]
-            s_hom = Vector{Float64}(undef, 10)
-            hom_1 = est_res_1[:,i]
-            hom_2 = est_res_2[:,i]
-            hom_3 = est_res_3[:,i]
-            if hom_1[19] - hom_2[19] > chisq_1_95
-                if hom_2[19] - hom_3[19] > chisq_1_95
-                    hom = [3, 4]
-                    ABIC_hom = hom_3[20:21]
-                else
-                    hom = [2, 3]
-                    ABIC_hom = hom_2[20:21]
-                    s_hom = CV(mc_p[n+(i-1)*c:n-1+i*c], mc_s[n+(i-1)*c:n-1+i*c])
-                end
-            elseif hom_1[19] - hom_3[19] > chisq_2_95
-                hom = [3, 4]
-                ABIC_hom = hom_3[20:21]
-                s_hom = CV(mc_p[n+(i-1)*c:n-1+i*c]) .+ CV(mc_s[n+(i-1)*c:n-1+i*c])
-            else
-                ABIC_hom = hom_1[20:21]
-                s_hom = CV(mc_p[n+(i-1)*c:n-1+i*c], 1.) .+ CV(mc_s[n+(i-1)*c:n-1+i*c], 1.)
-            end
-            het = [4, 2]
-            ABIC_het = [Inf, Inf]
-            s_het = Vector{Float64}(undef, 10)
-            het_4 = est_res_4[:,i]
-            het_5 = est_res_5[:,i]
-            if het_4[7] - het_5[22] > chisq_2_95
-                het = [5, 4]
-                ABIC_het = het_5[23:24]
-                s_het = CV(mc_p[n+(i-1)*c:n-1+i*c], mc_s[n+(i-1)*c:n-1+i*c], Nf_p/Nf_s, het_5[7], true)
-            else
-                ABIC_het = het_4[8:9]
-                s_het = CV(mc_p[n+(i-1)*c:n-1+i*c], mc_s[n+(i-1)*c:n-1+i*c], Nf_p/Nf_s)
-            end
-            if ABIC_het[1] - ABIC_hom[1] < -2
-                selected_m[3,i] = het[1]
-            elseif ABIC_het[1] - ABIC_hom[1] > 2
-                selected_m[3,i] = hom[1]
-            end
-            if ABIC_het[2] - ABIC_hom[2] < -2
-                selected_m[4,i] = het[1]
-            elseif ABIC_het[2] - ABIC_hom[2] > 2
-                selected_m[4,i] = hom[1]
-            end
-            if mean(s_het) < mean(s_hom)
-                if het[2] < hom[2] || mean(s_het) + std(s_het)*(1-cor(s_het,s_hom))^0.5 < mean(s_hom)
-                    selected_m[5,i] = het[1]
-                elseif het[2] == hom[2] && mean(s_het) + std(s_het)*(1-cor(s_het,s_hom))^0.5 >= mean(s_hom)
-                    selected_m[5,i] = 0
-                else
-                    selected_m[5,i] = hom[1]
-                end
-            else
-                if hom[2] < het[2] || mean(s_hom) + std(s_hom)*(1-cor(s_het,s_hom))^0.5 < mean(s_het)
-                    selected_m[5,i] = hom[1]
-                elseif hom[2] == het[2] && mean(s_hom) + std(s_hom)*(1-cor(s_het,s_hom))^0.5 >= mean(s_het)
-                    selected_m[5,i] = 0
-                else
-                    selected_m[5,i] = het[1]
-                end
-            end
-            selected_m[1,i] = hom[1]
-            selected_m[2,i] = het[1]
-            selected_model[:, "$i"] = selected_m[:,i]
-        end
-        CSV.write("inferred_parameters/range-gamma_on-increase$inc/selected_model-number_cultures_$c-gamma_on_$(j)_new.csv", selected_model)
-    end
-    n += 100*c
-end
 end

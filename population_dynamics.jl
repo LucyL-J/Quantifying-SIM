@@ -59,7 +59,7 @@ function t_expected_m(N0_off, pop_growth, mutation_off, switching, N0_on, net_gr
     end
 end
 
-# Branching processes (single/two-type)
+# Branching processes (single/two-type, exact)
 # Single-type branching process
 function number_cells(T, birth, death; N_max=Inf)
     if T <= 0.
@@ -183,6 +183,7 @@ end
 # Testing validity of approximations
 # Simulating non-mutant dynamics: response-off subpopulation deterministic and response-on subpopulation stochastic
 # Returns the number of response-on cells at time T
+# If the subpopulation size exceeds N_max the subsequent dynamics are treated deterministically
 function non_mutants_on(T, N0_off, pop_growth, switching, N0_on::Int, division_on, death_on, N_max)
     if N0_on >= N_max
         return Int(round(pop_size(T, N0_off, pop_growth, switching, N0_on, division_on-death_on)))
