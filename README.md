@@ -1,8 +1,7 @@
 # Quantifying-SIM
 Documentation of the simulations and computational analysis of the manuscript \
 *Estimating mutation rates under heterogeneous stress responses* \
-Lucy Lansch-Justen, Meriem El Karoui, Helen K. Alexander \
-[bioRxiv 2023.09.05.555499](https://doi.org/10.1101/2023.09.05.555499).
+Lucy Lansch-Justen, Meriem El Karoui, Helen K. Alexander.
 
 The simulations and the inference algorithms are written in the programming language [julia verison 1.6](https://julialang.org/downloads/#long_term_support_release). 
 
