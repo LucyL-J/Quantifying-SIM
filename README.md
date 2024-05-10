@@ -1,4 +1,4 @@
-# Quantifying-SIM
+# Quantifying-SIM [![DOI](https://zenodo.org/badge/671934918.svg)](https://zenodo.org/doi/10.5281/zenodo.11174800)
 Documentation of the simulations and computational analysis of the manuscript \
 *Estimating mutation rates under heterogeneous stress responses* \
 Lucy Lansch-Justen, Meriem El Karoui, Helen K. Alexander.
